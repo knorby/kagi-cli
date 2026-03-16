@@ -160,6 +160,8 @@ jobs:
             exit 0
           fi
 
+          SYNC_TOKEN="$(printf '%s' "$REPO_SYNC_TOKEN" | tr -d '\r\n')"
+
           VERSION="${GITHUB_REF_NAME#v}"
           CHECKSUM_FILE="dist/kagi-${GITHUB_REF_NAME}-checksums.txt"
           BASE_URL="https://github.com/Microck/kagi-cli/releases/download/${GITHUB_REF_NAME}"
@@ -178,8 +180,8 @@ jobs:
           TAP_DIR="$(mktemp -d)"
           BUCKET_DIR="$(mktemp -d)"
 
-          git clone "https://x-access-token:${REPO_SYNC_TOKEN}@github.com/Microck/homebrew-kagi.git" "$TAP_DIR"
-          git clone "https://x-access-token:${REPO_SYNC_TOKEN}@github.com/Microck/scoop-kagi.git" "$BUCKET_DIR"
+          git clone "https://x-access-token:${SYNC_TOKEN}@github.com/Microck/homebrew-kagi.git" "$TAP_DIR"
+          git clone "https://x-access-token:${SYNC_TOKEN}@github.com/Microck/scoop-kagi.git" "$BUCKET_DIR"
 
           mkdir -p "$TAP_DIR/Formula"
           cat > "$TAP_DIR/Formula/kagi.rb" <<EOF
