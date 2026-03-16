@@ -100,6 +100,13 @@ kagi fastgpt "best practices for private browsing"
 kagi enrich web "obsidian cli plugins"
 ```
 
+if both credentials are present, base search now prefers your subscriber session by default. if you want normal search to prefer the paid api instead, set this in `.kagi.toml`:
+
+```toml
+[auth]
+preferred_auth = "api"
+```
+
 ## what you can do
 
 - search kagi from the terminal with json by default or `--pretty` when you want nicer human output
@@ -146,7 +153,8 @@ kagi news --chaos
 small notes that matter:
 
 - environment variables win over `.kagi.toml`
-- base search can use either token path
+- base search can use either token path and prefers session by default
+- set `[auth] preferred_auth = "api"` in `.kagi.toml` if you want normal search to prefer the paid api path
 - `news` and `smallweb` do not need auth
 
 ## for automation

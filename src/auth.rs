@@ -42,6 +42,31 @@ impl CredentialSource {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchAuthPreference {
+    Session,
+    Api,
+}
+
+impl SearchAuthPreference {
+    fn parse(raw: &str) -> Result<Self, KagiError> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "session" => Ok(Self::Session),
+            "api" => Ok(Self::Api),
+            other => Err(KagiError::Config(format!(
+                "invalid [auth.preferred_auth] value `{other}`; expected `session` or `api`"
+            ))),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Session => "session",
+            Self::Api => "api",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Credential {
     pub kind: CredentialKind,
@@ -59,6 +84,7 @@ pub struct SearchCredentials {
 pub struct CredentialInventory {
     pub api_token: Option<Credential>,
     pub session_token: Option<Credential>,
+    pub search_preference: SearchAuthPreference,
     pub config_path: PathBuf,
 }
 
@@ -81,18 +107,37 @@ impl CredentialInventory {
             });
         }
 
-        if let Some(api_token) = self.api_token.clone() {
-            return Ok(SearchCredentials {
-                primary: api_token,
-                fallback_session: self.session_token.clone(),
-            });
-        }
+        match self.search_preference {
+            SearchAuthPreference::Session => {
+                if let Some(session_token) = self.session_token.clone() {
+                    return Ok(SearchCredentials {
+                        primary: session_token,
+                        fallback_session: self.api_token.clone(),
+                    });
+                }
 
-        if let Some(session_token) = self.session_token.clone() {
-            return Ok(SearchCredentials {
-                primary: session_token,
-                fallback_session: None,
-            });
+                if let Some(api_token) = self.api_token.clone() {
+                    return Ok(SearchCredentials {
+                        primary: api_token,
+                        fallback_session: None,
+                    });
+                }
+            }
+            SearchAuthPreference::Api => {
+                if let Some(api_token) = self.api_token.clone() {
+                    return Ok(SearchCredentials {
+                        primary: api_token,
+                        fallback_session: self.session_token.clone(),
+                    });
+                }
+
+                if let Some(session_token) = self.session_token.clone() {
+                    return Ok(SearchCredentials {
+                        primary: session_token,
+                        fallback_session: None,
+                    });
+                }
+            }
         }
 
         Err(KagiError::Config(
@@ -101,7 +146,10 @@ impl CredentialInventory {
     }
 
     pub fn preferred_for_status(&self) -> Option<&Credential> {
-        self.api_token.as_ref().or(self.session_token.as_ref())
+        match self.search_preference {
+            SearchAuthPreference::Session => self.session_token.as_ref().or(self.api_token.as_ref()),
+            SearchAuthPreference::Api => self.api_token.as_ref().or(self.session_token.as_ref()),
+        }
     }
 }
 
@@ -114,11 +162,19 @@ struct ConfigFile {
 struct AuthConfig {
     api_token: Option<String>,
     session_token: Option<String>,
+    preferred_auth: Option<String>,
 }
 
 pub fn load_credential_inventory() -> Result<CredentialInventory, KagiError> {
     let config_path = PathBuf::from(DEFAULT_CONFIG_PATH);
     let config = read_config_file(&config_path)?;
+    let search_preference = config
+        .auth
+        .as_ref()
+        .and_then(|auth| auth.preferred_auth.as_deref())
+        .map(SearchAuthPreference::parse)
+        .transpose()?
+        .unwrap_or(SearchAuthPreference::Session);
 
     let env_api = read_env_credential(API_TOKEN_ENV).map(|value| Credential {
         kind: CredentialKind::ApiToken,
@@ -158,6 +214,7 @@ pub fn load_credential_inventory() -> Result<CredentialInventory, KagiError> {
     Ok(CredentialInventory {
         api_token: env_api.or(config_api),
         session_token: env_session.or(config_session),
+        search_preference,
         config_path,
     })
 }
@@ -178,8 +235,9 @@ pub fn format_status(inventory: &CredentialInventory) -> String {
     let session_line = format_status_line("session token", inventory.session_token.as_ref());
 
     format!(
-        "{selected_line}\n{api_line}\n{session_line}\nconfig path: {}\nprecedence: env > config; base search prefers api token when available; lens search requires session token",
-        inventory.config_path.display()
+        "{selected_line}\npreferred auth for base search: {}\n{api_line}\n{session_line}\nconfig path: {}\nprecedence: env > config; base search defaults to session unless [auth.preferred_auth] = \"api\"; lens search requires session token",
+        inventory.search_preference.as_str(),
+        inventory.config_path.display(),
     )
 }
 
@@ -361,6 +419,7 @@ mod tests {
                             value: value.clone(),
                         })
                 }),
+            search_preference: SearchAuthPreference::Session,
             config_path: path.clone(),
         };
 
@@ -384,6 +443,7 @@ mod tests {
                 value: "api".to_string(),
             }),
             session_token: None,
+            search_preference: SearchAuthPreference::Session,
             config_path: PathBuf::from(DEFAULT_CONFIG_PATH),
         };
 
@@ -395,7 +455,7 @@ mod tests {
     }
 
     #[test]
-    fn base_search_keeps_session_token_as_fallback_when_api_token_exists() {
+    fn base_search_keeps_api_token_as_fallback_when_session_is_preferred() {
         let inventory = CredentialInventory {
             api_token: Some(Credential {
                 kind: CredentialKind::ApiToken,
@@ -407,24 +467,25 @@ mod tests {
                 source: CredentialSource::Env,
                 value: "session".to_string(),
             }),
+            search_preference: SearchAuthPreference::Session,
             config_path: PathBuf::from(DEFAULT_CONFIG_PATH),
         };
 
         let credentials = inventory
             .resolve_for_search(false)
             .expect("base search resolves credential");
-        assert_eq!(credentials.primary.kind, CredentialKind::ApiToken);
+        assert_eq!(credentials.primary.kind, CredentialKind::SessionToken);
         assert_eq!(
             credentials
                 .fallback_session
-                .expect("session fallback exists")
+                .expect("api fallback exists")
                 .kind,
-            CredentialKind::SessionToken
+            CredentialKind::ApiToken
         );
     }
 
     #[test]
-    fn prefers_api_token_for_base_search() {
+    fn prefers_session_for_base_search_by_default() {
         let inventory = CredentialInventory {
             api_token: Some(Credential {
                 kind: CredentialKind::ApiToken,
@@ -436,6 +497,30 @@ mod tests {
                 source: CredentialSource::Env,
                 value: "session".to_string(),
             }),
+            search_preference: SearchAuthPreference::Session,
+            config_path: PathBuf::from(DEFAULT_CONFIG_PATH),
+        };
+
+        let credentials = inventory
+            .resolve_for_search(false)
+            .expect("base search resolves credential");
+        assert_eq!(credentials.primary.kind, CredentialKind::SessionToken);
+    }
+
+    #[test]
+    fn prefers_api_for_base_search_when_configured() {
+        let inventory = CredentialInventory {
+            api_token: Some(Credential {
+                kind: CredentialKind::ApiToken,
+                source: CredentialSource::Env,
+                value: "api".to_string(),
+            }),
+            session_token: Some(Credential {
+                kind: CredentialKind::SessionToken,
+                source: CredentialSource::Env,
+                value: "session".to_string(),
+            }),
+            search_preference: SearchAuthPreference::Api,
             config_path: PathBuf::from(DEFAULT_CONFIG_PATH),
         };
 
@@ -443,6 +528,27 @@ mod tests {
             .resolve_for_search(false)
             .expect("base search resolves credential");
         assert_eq!(credentials.primary.kind, CredentialKind::ApiToken);
+    }
+
+    #[test]
+    fn rejects_invalid_preferred_auth_value() {
+        let path = unique_path();
+        fs::write(&path, "[auth]\npreferred_auth = \"weird\"\n").expect("write config");
+
+        let raw = fs::read_to_string(&path).expect("read config");
+        let config: ConfigFile = toml::from_str(&raw).expect("parse config");
+        let error = config
+            .auth
+            .as_ref()
+            .and_then(|auth| auth.preferred_auth.as_deref())
+            .map(SearchAuthPreference::parse)
+            .transpose()
+            .expect_err("invalid config should fail");
+
+        assert!(error
+            .to_string()
+            .contains("expected `session` or `api`"));
+        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -454,11 +560,13 @@ mod tests {
                 value: "secret-api".to_string(),
             }),
             session_token: None,
+            search_preference: SearchAuthPreference::Session,
             config_path: PathBuf::from(DEFAULT_CONFIG_PATH),
         };
 
         let status = format_status(&inventory);
         assert!(status.contains("selected: api-token (env)"));
+        assert!(status.contains("preferred auth for base search: session"));
         assert!(!status.contains("secret-api"));
     }
 
