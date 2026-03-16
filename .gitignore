@@ -5,6 +5,7 @@
 .bg-shell/
 opensrc/
 README_OUTLINE.md
+npm/vendor/
 .DS_Store
 Thumbs.db
 *.swp

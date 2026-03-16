@@ -9,11 +9,21 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 ### Added
 
-- Repository publishing docs, community files, issue templates, and GitHub automation
+- Ongoing documentation and release process improvements
+
+## [0.1.1]
+
+### Added
+
 - Cross-platform GitHub Release packaging and install scripts for the native `kagi` binary
+- npm wrapper package so global installs still expose the `kagi` command
+
+### Changed
+
+- Added publish-ready package metadata and Rust package exclusions for cleaner release artifacts
 
 ## [0.1.0]
 
 ### Added
 
-- Initial Rust CLI for Kagi search, auth, summarize, news, assistant, FastGPT, enrich, and Small Web flows
+- Initial public CLI release with GitHub repository setup, docs, policies, and CI automation

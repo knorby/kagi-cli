@@ -76,6 +76,7 @@ jobs:
           mkdir -p dist
           cp "target/$TARGET/release/kagi" dist/kagi
           tar -C dist -czf "kagi-$TAG-$TARGET.tar.gz" kagi
+          cp "target/$TARGET/release/kagi" "kagi-$TAG-$TARGET"
 
       - name: Package release archive (windows)
         if: runner.os == 'Windows'
@@ -87,12 +88,25 @@ jobs:
           New-Item -ItemType Directory -Path dist -Force | Out-Null
           Copy-Item "target/$env:TARGET/release/kagi.exe" "dist/kagi.exe"
           Compress-Archive -Path "dist/kagi.exe" -DestinationPath "kagi-$env:TAG-$env:TARGET.zip" -Force
+          Copy-Item "target/$env:TARGET/release/kagi.exe" "kagi-$env:TAG-$env:TARGET.exe"
 
-      - name: Upload packaged archive
+      - name: Upload packaged assets (unix)
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.target }}
-          path: kagi-${{ github.ref_name }}-${{ matrix.target }}.${{ matrix.archive_ext }}
+          path: |
+            kagi-${{ github.ref_name }}-${{ matrix.target }}.${{ matrix.archive_ext }}
+            kagi-${{ github.ref_name }}-${{ matrix.target }}
+
+      - name: Upload packaged assets (windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: |
+            kagi-${{ github.ref_name }}-${{ matrix.target }}.${{ matrix.archive_ext }}
+            kagi-${{ github.ref_name }}-${{ matrix.target }}.exe
 
   release:
     needs: build

@@ -1,0 +1,36 @@
+{
+  "name": "kagi-cli",
+  "version": "0.1.1",
+  "description": "Node wrapper that installs the native kagi CLI binary",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Microck/kagi-cli.git"
+  },
+  "homepage": "https://github.com/Microck/kagi-cli#readme",
+  "bugs": {
+    "url": "https://github.com/Microck/kagi-cli/issues"
+  },
+  "bin": {
+    "kagi": "bin/kagi.cjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node lib/install.cjs"
+  },
+  "keywords": [
+    "kagi",
+    "cli",
+    "search",
+    "terminal",
+    "rust"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "preferGlobal": true
+}

@@ -26,6 +26,15 @@ irm https://raw.githubusercontent.com/Microck/kagi-cli/main/scripts/install.ps1 
 kagi --help
 ```
 
+Install with Node package managers:
+
+```bash
+npm install -g kagi-cli
+pnpm add -g kagi-cli
+bun add -g kagi-cli
+kagi --help
+```
+
 Fastest commands that work without auth:
 
 ```bash
@@ -70,6 +79,16 @@ irm https://raw.githubusercontent.com/Microck/kagi-cli/main/scripts/install.ps1 
 ```
 
 The installers place `kagi` in a user-local bin directory and download the correct asset for your platform from GitHub Releases.
+
+### Install with npm, pnpm, or bun
+
+```bash
+npm install -g kagi-cli
+pnpm add -g kagi-cli
+bun add -g kagi-cli
+```
+
+These package-manager installs still expose the same `kagi` command. The wrapper package downloads the native release binary for the current platform during install.
 
 ### Build locally from source
 
