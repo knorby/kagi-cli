@@ -11,6 +11,14 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 - Ongoing documentation and release process improvements
 
+## [0.1.5]
+
+### Fixed
+
+- Added ARM64 Linux release artifacts so install flows work on `aarch64-unknown-linux-gnu`
+- Made unsupported Windows ARM64 installs fail fast with a clear error instead of a 404
+- Switched npm publishing automation to run after the `Release` workflow completes
+
 ## [0.1.4]
 
 ### Fixed

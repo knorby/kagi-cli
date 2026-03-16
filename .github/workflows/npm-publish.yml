@@ -2,9 +2,11 @@ name: npm Publish
 
 on:
   workflow_dispatch:
-  release:
+  workflow_run:
+    workflows:
+      - Release
     types:
-      - published
+      - completed
 
 permissions:
   contents: read
@@ -12,11 +14,14 @@ permissions:
 
 jobs:
   publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.workflow_run.head_sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

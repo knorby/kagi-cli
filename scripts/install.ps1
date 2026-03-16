@@ -18,7 +18,7 @@ function Get-Target {
     $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
     switch ($arch) {
         "X64" { return "x86_64-pc-windows-msvc" }
-        "Arm64" { return "aarch64-pc-windows-msvc" }
+        "Arm64" { throw "Unsupported Windows architecture: $arch. Native release assets currently support x86_64 Windows only." }
         default {
             throw "Unsupported Windows architecture: $arch"
         }

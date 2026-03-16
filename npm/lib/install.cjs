@@ -16,26 +16,29 @@ function detectTarget() {
   const os = process.platform;
   const arch = process.arch;
 
-  const archPart =
-    arch === "x64" ? "x86_64" :
-    arch === "arm64" ? "aarch64" :
-    null;
-
-  if (!archPart) {
+  if (arch !== "x64" && arch !== "arm64") {
     throw new Error(`unsupported CPU architecture for kagi: ${arch}`);
   }
 
-  const osPart =
-    os === "linux" ? "unknown-linux-gnu" :
-    os === "darwin" ? "apple-darwin" :
-    os === "win32" ? "pc-windows-msvc" :
-    null;
-
-  if (!osPart) {
-    throw new Error(`unsupported operating system for kagi: ${os}`);
+  if (os === "linux") {
+    return `${arch === "x64" ? "x86_64" : "aarch64"}-unknown-linux-gnu`;
   }
 
-  return `${archPart}-${osPart}`;
+  if (os === "darwin") {
+    return `${arch === "x64" ? "x86_64" : "aarch64"}-apple-darwin`;
+  }
+
+  if (os === "win32") {
+    if (arch !== "x64") {
+      throw new Error(
+        "unsupported Windows architecture for kagi: arm64. Use x86_64 Windows or a GitHub Release asset for another supported platform."
+      );
+    }
+
+    return "x86_64-pc-windows-msvc";
+  }
+
+  throw new Error(`unsupported operating system for kagi: ${os}`);
 }
 
 function getBinaryPath() {
