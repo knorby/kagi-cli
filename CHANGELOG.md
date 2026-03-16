@@ -11,6 +11,16 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 - Ongoing documentation and release process improvements
 
+## [0.1.6]
+
+### Added
+
+- Automated release sync for the Homebrew tap and Scoop bucket companion repositories
+
+### Changed
+
+- Switched npm publishing automation to use an explicit registry token path for release publishes
+
 ## [0.1.5]
 
 ### Fixed
