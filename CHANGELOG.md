@@ -7,6 +7,8 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 ## [Unreleased]
 
+## [0.1.7]
+
 ### Added
 
 - Multiple output formats: JSON, Pretty, Compact, Markdown, and CSV
