@@ -11,7 +11,7 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 - Multiple output formats: JSON, Pretty, Compact, Markdown, and CSV
 - Batch search capability with parallel execution and rate limiting
-- Enhanced CLI with shell autocomplete support
+- Shell completion generation for Bash, Zsh, Fish, and PowerShell
 - Colorized terminal output with `--no-color` option
 - Comprehensive lens support for scoped searches
 

@@ -74,20 +74,6 @@ kagi batch "news" "weather" --format markdown
 - Lens support for scoped searches
 - All output formats supported
 
-### Shell Autocomplete
-
-Full autocomplete support for Bash, Zsh, Fish, and PowerShell:
-
-```bash
-# Generate completion script
-kagi --generate-completion bash > /etc/bash_completion.d/kagi
-
-# Then enjoy autocomplete
-kagi <TAB><TAB>            # Shows all commands
-kagi search --format <TAB> # Shows format options
-kagi batch --<TAB>         # Shows batch options
-```
-
 ### Colorized Output
 
 Pretty format now includes colored output by default:
@@ -217,7 +203,7 @@ for the full command-to-token matrix, use the [`auth-matrix`](https://kagi.micr.
 
 | command | purpose |
 | --- | --- |
-| `kagi search` | search Kagi with JSON by default or `--pretty` for terminal output |
+| `kagi search` | search Kagi with JSON by default or `--format pretty` for terminal output |
 | `kagi auth` | inspect, validate, and save credentials |
 | `kagi summarize` | use the paid public summarizer API or the subscriber summarizer with `--subscriber` |
 | `kagi news` | read Kagi News from public JSON endpoints |
@@ -226,7 +212,7 @@ for the full command-to-token matrix, use the [`auth-matrix`](https://kagi.micr.
 | `kagi enrich` | query Kagi's web and news enrichment indexes |
 | `kagi smallweb` | fetch the Kagi Small Web feed |
 
-for automation, stdout stays JSON by default. `--pretty` only changes rendering for humans.
+for automation, stdout stays JSON by default. `--format pretty` only changes rendering for humans.
 
 ## building from source
 
@@ -287,9 +273,9 @@ kagi --generate-completion fish > ~/.config/fish/completions/kagi.fish
 
 ```bash
 # After setting up completions, try:
-kagi <TAB><TAB>  # Shows all available commands
-kagi search --format <TAB>  # Shows: json, pretty, compact, markdown, csv
-kagi batch --<TAB>  # Shows batch command options
+kagi <TAB><TAB>
+kagi search --format <TAB>
+kagi batch --<TAB>
 ```
 
 ### output formats
@@ -341,7 +327,7 @@ kagi search "what is mullvad"'
 switch the same command to terminal-readable output:
 
 ```bash
-kagi search --pretty "how do i exit vim"
+kagi search --format pretty "how do i exit vim"
 ```
 
 scope search to one of your lenses:

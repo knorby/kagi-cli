@@ -6,7 +6,8 @@ mod parser;
 mod search;
 mod types;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::{generate, shells};
 
 use crate::api::{
     execute_assistant_prompt, execute_enrich_news, execute_enrich_web, execute_fastgpt,
@@ -17,7 +18,9 @@ use crate::auth::{
     Credential, CredentialKind, SearchCredentials, format_status, load_credential_inventory,
     save_credentials,
 };
-use crate::cli::{AuthSetArgs, AuthSubcommand, Cli, Commands, EnrichSubcommand};
+use crate::cli::{
+    AuthSetArgs, AuthSubcommand, Cli, Commands, CompletionShell, EnrichSubcommand,
+};
 use crate::error::KagiError;
 use crate::types::{
     AssistantPromptRequest, FastGptRequest, SearchResponse, SubscriberSummarizeRequest,
@@ -38,7 +41,21 @@ async fn main() {
 async fn run() -> Result<(), KagiError> {
     let cli = Cli::parse();
 
-    match cli.command {
+    if cli.generate_completion.is_some() && cli.command.is_some() {
+        return Err(KagiError::Config(
+            "--generate-completion cannot be used with a command".to_string(),
+        ));
+    }
+
+    if let Some(shell) = cli.generate_completion {
+        print_completion(shell);
+        return Ok(());
+    }
+
+    match cli
+        .command
+        .ok_or_else(|| KagiError::Config("missing command".to_string()))?
+    {
         Commands::Search(args) => {
             let request = search::SearchRequest::new(args.query);
             let request = if let Some(lens) = args.lens {
@@ -147,6 +164,9 @@ async fn run() -> Result<(), KagiError> {
             print_json(&response)
         }
         Commands::Batch(args) => {
+            // Validate batch arguments
+            args.validate().map_err(|e| KagiError::Config(e))?;
+
             let format_str = match args.format {
                 cli::OutputFormat::Json => "json",
                 cli::OutputFormat::Pretty => "pretty",
@@ -163,6 +183,19 @@ async fn run() -> Result<(), KagiError> {
                 args.lens,
             )
             .await
+        }
+    }
+}
+
+fn print_completion(shell: CompletionShell) {
+    let mut cmd = Cli::command();
+
+    match shell {
+        CompletionShell::Bash => generate(shells::Bash, &mut cmd, "kagi", &mut std::io::stdout()),
+        CompletionShell::Zsh => generate(shells::Zsh, &mut cmd, "kagi", &mut std::io::stdout()),
+        CompletionShell::Fish => generate(shells::Fish, &mut cmd, "kagi", &mut std::io::stdout()),
+        CompletionShell::PowerShell => {
+            generate(shells::PowerShell, &mut cmd, "kagi", &mut std::io::stdout())
         }
     }
 }
@@ -338,6 +371,15 @@ fn format_markdown_response(response: &SearchResponse) -> String {
         .join("\n")
 }
 
+fn escape_csv_field(field: &str) -> String {
+    if field.contains('"') || field.contains(',') || field.contains('\n') || field.contains('\r') {
+        let escaped = field.replace('"', "\"\"");
+        format!("\"{}\"", escaped)
+    } else {
+        field.to_string()
+    }
+}
+
 fn format_csv_response(response: &SearchResponse) -> String {
     if response.data.is_empty() {
         return "title,url,snippet".to_string();
@@ -346,10 +388,10 @@ fn format_csv_response(response: &SearchResponse) -> String {
     let mut output = String::from("title,url,snippet\n");
 
     for result in &response.data {
-        let title = result.title.replace('"', "'");
-        let url = result.url.replace('"', "'");
-        let snippet = result.snippet.replace('"', "'");
-        output.push_str(&format!("\"{}\",\"{}\",\"{}\"\n", title, url, snippet));
+        let title = escape_csv_field(&result.title);
+        let url = escape_csv_field(&result.url);
+        let snippet = escape_csv_field(&result.snippet);
+        output.push_str(&format!("{},{},{}\n", title, url, snippet));
     }
 
     output
@@ -458,22 +500,72 @@ async fn run_batch_search(
     }
 
     let mut results = vec![];
+    let mut had_errors = false;
+
     for handle in handles {
         match handle.await {
             Ok(Ok((query, output))) => results.push((query, output)),
-            Ok(Err(e)) => eprintln!("Error processing query: {e}"),
-            Err(e) => eprintln!("Task failed: {e}"),
+            Ok(Err(e)) => {
+                eprintln!("Error processing query: {e}");
+                had_errors = true;
+            }
+            Err(e) => {
+                eprintln!("Task failed: {e}");
+                had_errors = true;
+            }
         }
     }
 
-    // Output results in order
-    for (query, output) in results {
-        println!("=== Results for: {} ===", query);
-        println!("{}", output);
-        println!();
+    if had_errors && (format == "json" || format == "compact") {
+        // For machine-readable formats, exit with error code if any queries failed
+        return Err(KagiError::Batch(
+            "One or more batch queries failed".to_string(),
+        ));
     }
 
-    Ok(())
+    // Output results in order
+    if format == "json" || format == "compact" {
+        // For machine-readable formats, create a proper JSON envelope
+        let queries: Vec<String> = results.iter().map(|(query, _)| query.clone()).collect();
+        let mut results_json = serde_json::json!({
+            "queries": queries,
+            "results": []
+        });
+
+        let results_array = results_json["results"].as_array_mut().unwrap();
+
+        for (query, output) in results {
+            // Parse the individual JSON output and add to array
+            let parsed: serde_json::Value = serde_json::from_str(&output).map_err(|e| {
+                KagiError::Parse(format!(
+                    "failed to parse batch result for '{}': {}",
+                    query, e
+                ))
+            })?;
+            results_array.push(parsed);
+        }
+
+        if format == "compact" {
+            println!("{}", serde_json::to_string(&results_json)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&results_json)?);
+        }
+    } else {
+        // For human-readable formats, output with headers
+        for (query, output) in results {
+            println!("=== Results for: {} ===", query);
+            println!("{}", output);
+            println!();
+        }
+    }
+
+    if had_errors {
+        Err(KagiError::Batch(
+            "One or more batch queries failed".to_string(),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -629,7 +721,28 @@ mod tests {
 
         assert_eq!(
             output,
-            "title,url,snippet\n\"Rust Programming Language\",\"https://www.rust-lang.org\",\"A language empowering everyone to build reliable and efficient software.\"\n"
+            "title,url,snippet\nRust Programming Language,https://www.rust-lang.org,A language empowering everyone to build reliable and efficient software.\n"
+        );
+    }
+
+    #[test]
+    fn formats_csv_output_with_escaping() {
+        let response = SearchResponse {
+            data: vec![SearchResult {
+                t: 0,
+                rank: None,
+                title: "Rust, \"The Language\"".to_string(),
+                url: "https://example.com/a,b".to_string(),
+                snippet: "line 1\nline 2".to_string(),
+                published: None,
+            }],
+        };
+
+        let output = format_csv_response(&response);
+
+        assert_eq!(
+            output,
+            "title,url,snippet\n\"Rust, \"\"The Language\"\"\",\"https://example.com/a,b\",\"line 1\nline 2\"\n"
         );
     }
 

@@ -1,5 +1,14 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
+#[derive(Debug, Clone, ValueEnum)]
+pub enum CompletionShell {
+    Bash,
+    Zsh,
+    Fish,
+    #[value(name = "powershell")]
+    PowerShell,
+}
+
 /// Output format options for search results
 #[derive(Debug, Clone, ValueEnum)]
 pub enum OutputFormat {
@@ -31,11 +40,11 @@ impl std::fmt::Display for OutputFormat {
 #[command(
     name = "kagi",
     version,
-    about = "Agent-native CLI for Kagi subscribers with autocomplete and batch processing",
+    about = "Agent-native CLI for Kagi subscribers with shell completion and batch processing",
     long_about = "Search Kagi from the command line with JSON-first output for agents.
 
 Features:
-• Shell autocomplete support (bash, zsh, fish, powershell)
+• Shell completion generation (bash, zsh, fish, powershell)
 • Multiple output formats (json, pretty, compact, markdown, csv)
 • Parallel batch searches with rate limiting
 • Colorized terminal output (disable with --no-color)
@@ -43,9 +52,14 @@ Features:
     propagate_version = true
 )]
 #[command(disable_help_subcommand = true)]
+#[command(arg_required_else_help = true)]
 pub struct Cli {
+    /// Generate shell completion script and print to stdout
+    #[arg(long, value_name = "SHELL", value_enum)]
+    pub generate_completion: Option<CompletionShell>,
+
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -58,7 +72,6 @@ pub enum Commands {
     /// • Multiple output formats: json (default), pretty, compact, markdown, csv
     /// • Colorized pretty output (disable with --no-color)
     /// • Lens support for scoped searches
-    /// • Shell autocomplete for all options
     Search(SearchArgs),
     /// Inspect and validate configured credentials
     Auth(AuthCommand),
@@ -81,7 +94,7 @@ pub enum Commands {
     /// Features:
     /// • Parallel execution with configurable concurrency
     /// • Token bucket rate limiting to respect API limits
-    /// • All output formats supported (json, pretty, markdown, csv)
+    /// • All output formats supported (json, pretty, compact, markdown, csv)
     /// • Lens support for scoped searches
     /// • Color output control with --no-color
     Batch(BatchSearchArgs),
@@ -136,6 +149,18 @@ pub struct BatchSearchArgs {
     /// Scope all searches to a Kagi lens by numeric index
     #[arg(long, value_name = "INDEX")]
     pub lens: Option<String>,
+}
+
+impl BatchSearchArgs {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.concurrency == 0 {
+            return Err("concurrency must be at least 1".to_string());
+        }
+        if self.rate_limit == 0 {
+            return Err("rate-limit must be at least 1".to_string());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Args)]
