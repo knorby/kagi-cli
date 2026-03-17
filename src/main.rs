@@ -414,29 +414,38 @@ impl RateLimiter {
     }
 
     async fn acquire(&self) -> Result<(), KagiError> {
-        let mut tokens = self.tokens.lock().await;
-        let mut last_refill = self.last_refill.lock().await;
-
-        // Refill tokens based on time elapsed
-        let now = Instant::now();
-        let elapsed = now.duration_since(*last_refill).as_secs_f64();
-        let new_tokens = (elapsed * (self.refill_rate as f64 / 60.0)) as u32;
-
-        if new_tokens > 0 {
-            *tokens = (*tokens + new_tokens).min(self.capacity);
-            *last_refill = now;
+        if self.refill_rate == 0 {
+            return Err(KagiError::Config(
+                "rate-limit must be at least 1".to_string(),
+            ));
         }
 
-        // Try to acquire a token
-        if *tokens > 0 {
-            *tokens -= 1;
-            Ok(())
-        } else {
-            // Wait until a token becomes available
-            let tokens_needed = 1;
-            let seconds_to_wait = (tokens_needed as f64 / self.refill_rate as f64) * 60.0;
+        loop {
+            let mut tokens = self.tokens.lock().await;
+            let mut last_refill = self.last_refill.lock().await;
+
+            let now = Instant::now();
+            let elapsed = now.duration_since(*last_refill).as_secs_f64();
+            let refill_interval = 60.0 / self.refill_rate as f64;
+            let refill_tokens = (elapsed / refill_interval).floor() as u32;
+
+            if refill_tokens > 0 {
+                *tokens = (*tokens + refill_tokens).min(self.capacity);
+                *last_refill += Duration::from_secs_f64(refill_tokens as f64 * refill_interval);
+            }
+
+            if *tokens > 0 {
+                *tokens -= 1;
+                return Ok(());
+            }
+
+            let elapsed_since_refill = Instant::now().duration_since(*last_refill).as_secs_f64();
+            let seconds_to_wait = (refill_interval - elapsed_since_refill).max(0.001);
+
+            drop(last_refill);
+            drop(tokens);
+
             tokio::time::sleep(Duration::from_secs_f64(seconds_to_wait)).await;
-            Ok(())
         }
     }
 }
@@ -574,6 +583,8 @@ mod tests {
     };
     use crate::error::KagiError;
     use crate::types::{SearchResponse, SearchResult};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
 
     #[test]
     fn formats_pretty_output_for_results() {
@@ -677,6 +688,36 @@ mod tests {
         // This just verifies it doesn't panic
         let result = rate_limiter.acquire().await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_throttles_under_contention() {
+        let rate_limiter = Arc::new(RateLimiter::new(1, 1200)); // 1 token capacity, 20 tokens/sec
+        let start = Instant::now();
+
+        let mut handles = Vec::new();
+        for _ in 0..3 {
+            let limiter = Arc::clone(&rate_limiter);
+            handles.push(tokio::spawn(async move {
+                limiter.acquire().await.unwrap();
+                Instant::now()
+            }));
+        }
+
+        let mut latest = start;
+        for handle in handles {
+            let acquired_at = handle.await.unwrap();
+            if acquired_at > latest {
+                latest = acquired_at;
+            }
+        }
+
+        let elapsed = latest.duration_since(start);
+        assert!(
+            elapsed >= Duration::from_millis(95),
+            "expected throttling to delay final acquisition by at least ~100ms, got {:?}",
+            elapsed
+        );
     }
 
     #[test]
