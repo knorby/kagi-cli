@@ -198,19 +198,29 @@ jobs:
 
           TAP_DIR="$(mktemp -d)"
           BUCKET_DIR="$(mktemp -d)"
-          AUTH_HEADER="$(printf 'x-access-token:%s' "$SYNC_TOKEN" | base64 | tr -d '\n')"
+          ASKPASS_SCRIPT="$(mktemp)"
+
+          cat > "$ASKPASS_SCRIPT" <<'EOF'
+          #!/usr/bin/env bash
+          case "$1" in
+            *Username*) printf '%s\n' "x-access-token" ;;
+            *Password*) printf '%s\n' "$SYNC_TOKEN" ;;
+          esac
+          EOF
+
+          chmod 700 "$ASKPASS_SCRIPT"
+          export GIT_ASKPASS="$ASKPASS_SCRIPT"
+          export GIT_TERMINAL_PROMPT=0
 
           clone_with_token() {
             local repo="$1"
             local dir="$2"
-            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${AUTH_HEADER}" \
-              clone "https://github.com/${repo}.git" "$dir"
+            git clone "https://github.com/${repo}.git" "$dir"
           }
 
           push_with_token() {
             local dir="$1"
-            git -C "$dir" -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${AUTH_HEADER}" \
-              push origin main
+            git -C "$dir" push origin main
           }
 
           clone_with_token "Microck/homebrew-kagi" "$TAP_DIR"
