@@ -51,12 +51,15 @@ kagi --help
 ### using a package manager
 
 ```bash
-brew tap Microck/kagi
-brew install kagi
-
 npm install -g kagi-cli
 pnpm add -g kagi-cli
 bun add -g kagi-cli
+
+brew tap Microck/kagi
+brew install kagi
+
+scoop bucket add kagi https://github.com/Microck/scoop-kagi
+scoop install kagi
 ```
 
 ### auth
