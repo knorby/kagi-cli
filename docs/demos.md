@@ -35,10 +35,10 @@ KAGI_SESSION_TOKEN='...' asciinema rec -c ./scripts/demo-summarize.sh -q -i 0.2 
 asciinema rec -c ./scripts/demo-news.sh -q -i 0.2 --cols 92 --rows 22 /tmp/kagi-demos/news.cast
 KAGI_SESSION_TOKEN='...' asciinema rec -c ./scripts/demo-assistant.sh -q -i 0.2 --cols 92 --rows 22 /tmp/kagi-demos/assistant.cast
 
-agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 2 /tmp/kagi-demos/search.cast docs/demo-assets/search.gif
-agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 2 /tmp/kagi-demos/summarize.cast docs/demo-assets/summarize.gif
-agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 2 /tmp/kagi-demos/news.cast docs/demo-assets/news.gif
-agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 2 /tmp/kagi-demos/assistant.cast docs/demo-assets/assistant.gif
+agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 4 /tmp/kagi-demos/search.cast docs/demo-assets/search.gif
+agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 4 /tmp/kagi-demos/summarize.cast docs/demo-assets/summarize.gif
+agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 4 /tmp/kagi-demos/news.cast docs/demo-assets/news.gif
+agg --theme asciinema --font-size 14 --idle-time-limit 2 --last-frame-duration 4 /tmp/kagi-demos/assistant.cast docs/demo-assets/assistant.gif
 ```
 
 If `agg --version` does not print `asciinema gif generator`, your `PATH` is resolving a different package. Use the official binary explicitly, for example `~/.cargo/bin/agg`.
