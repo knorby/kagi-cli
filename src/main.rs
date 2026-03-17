@@ -13,9 +13,6 @@ use crate::api::{
     execute_news, execute_news_categories, execute_news_chaos, execute_smallweb,
     execute_subscriber_summarize, execute_summarize,
 };
-use std::sync::Arc;
-use tokio::sync::Semaphore;
-use std::time::{Instant, Duration};
 use crate::auth::{
     Credential, CredentialKind, SearchCredentials, format_status, load_credential_inventory,
     save_credentials,
@@ -26,6 +23,9 @@ use crate::types::{
     AssistantPromptRequest, FastGptRequest, SearchResponse, SubscriberSummarizeRequest,
     SummarizeRequest,
 };
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::Semaphore;
 
 #[tokio::main]
 async fn main() {
@@ -161,12 +161,11 @@ async fn run() -> Result<(), KagiError> {
                 format_str.to_string(),
                 !args.no_color,
                 args.lens,
-            ).await
+            )
+            .await
         }
     }
 }
-
-
 
 fn run_auth_status() -> Result<(), KagiError> {
     let inventory = load_credential_inventory()?;
@@ -262,7 +261,11 @@ fn print_json<T: serde::Serialize>(value: &T) -> Result<(), KagiError> {
     Ok(())
 }
 
-async fn run_search(request: search::SearchRequest, format: String, use_color: bool) -> Result<(), KagiError> {
+async fn run_search(
+    request: search::SearchRequest,
+    format: String,
+    use_color: bool,
+) -> Result<(), KagiError> {
     let inventory = load_credential_inventory()?;
     let credentials = inventory.resolve_for_search(request.lens.is_some())?;
 
@@ -296,12 +299,12 @@ fn format_pretty_response(response: &SearchResponse, use_color: bool) -> String 
             let title_color = if use_color { "\x1b[1;34m" } else { "" };
             let url_color = if use_color { "\x1b[36m" } else { "" };
             let reset_color = if use_color { "\x1b[0m" } else { "" };
-            
+
             let mut section = format!(
                 "{}{}. {}{}\n   {}{}",
-                title_color, 
-                index + 1, 
-                result.title, 
+                title_color,
+                index + 1,
+                result.title,
                 url_color,
                 result.url,
                 reset_color
@@ -325,12 +328,7 @@ fn format_markdown_response(response: &SearchResponse) -> String {
         .iter()
         .enumerate()
         .map(|(index, result)| {
-            let mut section = format!(
-                "## {}. [{}]({})\n\n",
-                index + 1,
-                result.title,
-                result.url
-            );
+            let mut section = format!("## {}. [{}]({})\n\n", index + 1, result.title, result.url);
             if !result.snippet.trim().is_empty() {
                 section.push_str(&format!("{}\n\n", result.snippet.trim()));
             }
@@ -346,14 +344,14 @@ fn format_csv_response(response: &SearchResponse) -> String {
     }
 
     let mut output = String::from("title,url,snippet\n");
-    
+
     for result in &response.data {
         let title = result.title.replace('"', "'");
         let url = result.url.replace('"', "'");
         let snippet = result.snippet.replace('"', "'");
         output.push_str(&format!("\"{}\",\"{}\",\"{}\"\n", title, url, snippet));
     }
-    
+
     output
 }
 
@@ -378,12 +376,12 @@ impl RateLimiter {
     async fn acquire(&self) -> Result<(), KagiError> {
         let mut tokens = self.tokens.lock().await;
         let mut last_refill = self.last_refill.lock().await;
-        
+
         // Refill tokens based on time elapsed
         let now = Instant::now();
         let elapsed = now.duration_since(*last_refill).as_secs_f64();
         let new_tokens = (elapsed * (self.refill_rate as f64 / 60.0)) as u32;
-        
+
         if new_tokens > 0 {
             *tokens = (*tokens + new_tokens).min(self.capacity);
             *last_refill = now;
@@ -413,12 +411,12 @@ async fn run_batch_search(
 ) -> Result<(), KagiError> {
     let inventory = load_credential_inventory()?;
     let credentials = inventory.resolve_for_search(lens.is_some())?;
-    
+
     let rate_limiter = Arc::new(RateLimiter::new(rate_limit, rate_limit));
     let semaphore = Arc::new(Semaphore::new(concurrency));
 
     let mut handles = vec![];
-    
+
     for query in queries {
         let rate_limiter_clone = Arc::clone(&rate_limiter);
         let semaphore_clone = Arc::clone(&semaphore);
@@ -426,35 +424,36 @@ async fn run_batch_search(
         let lens_clone = lens.clone();
         let format_clone = format.clone();
         let query_clone = query.clone();
-        
-        let handle: tokio::task::JoinHandle<Result<(String, String), KagiError>> = tokio::spawn(async move {
-            let _permit = semaphore_clone.acquire().await;
-            rate_limiter_clone.acquire().await?;
-            
-            let request = search::SearchRequest::new(query_clone);
-            let request = if let Some(lens) = lens_clone {
-                request.with_lens(lens)
-            } else {
-                request
-            };
-            
-            let response = execute_search_request(&request, credentials_clone).await?;
-            
-            let output = match format_clone.as_str() {
-                "pretty" => format_pretty_response(&response, use_color),
-                "compact" => serde_json::to_string(&response).map_err(|error| {
-                    KagiError::Parse(format!("failed to serialize search response: {error}"))
-                })?,
-                "markdown" => format_markdown_response(&response),
-                "csv" => format_csv_response(&response),
-                _ => serde_json::to_string_pretty(&response).map_err(|error| {
-                    KagiError::Parse(format!("failed to serialize search response: {error}"))
-                })?,
-            };
-            
-            Ok((query, output))
-        });
-        
+
+        let handle: tokio::task::JoinHandle<Result<(String, String), KagiError>> =
+            tokio::spawn(async move {
+                let _permit = semaphore_clone.acquire().await;
+                rate_limiter_clone.acquire().await?;
+
+                let request = search::SearchRequest::new(query_clone);
+                let request = if let Some(lens) = lens_clone {
+                    request.with_lens(lens)
+                } else {
+                    request
+                };
+
+                let response = execute_search_request(&request, credentials_clone).await?;
+
+                let output = match format_clone.as_str() {
+                    "pretty" => format_pretty_response(&response, use_color),
+                    "compact" => serde_json::to_string(&response).map_err(|error| {
+                        KagiError::Parse(format!("failed to serialize search response: {error}"))
+                    })?,
+                    "markdown" => format_markdown_response(&response),
+                    "csv" => format_csv_response(&response),
+                    _ => serde_json::to_string_pretty(&response).map_err(|error| {
+                        KagiError::Parse(format!("failed to serialize search response: {error}"))
+                    })?,
+                };
+
+                Ok((query, output))
+            });
+
         handles.push(handle);
     }
 
@@ -565,7 +564,7 @@ mod tests {
     #[test]
     fn test_rate_limiter_basic_functionality() {
         let rate_limiter = RateLimiter::new(10, 60);
-        
+
         // Should be able to acquire tokens up to capacity
         for _ in 0..10 {
             let result = futures::executor::block_on(rate_limiter.acquire());
@@ -576,11 +575,11 @@ mod tests {
     #[test]
     fn test_rate_limiter_refill() {
         let rate_limiter = RateLimiter::new(2, 60); // 2 tokens, 60 per minute
-        
+
         // Acquire both tokens
         futures::executor::block_on(rate_limiter.acquire()).unwrap();
         futures::executor::block_on(rate_limiter.acquire()).unwrap();
-        
+
         // Third acquisition should wait (but we can't easily test the wait in a test)
         // This just verifies it doesn't panic
         let result = futures::executor::block_on(rate_limiter.acquire());
@@ -590,16 +589,15 @@ mod tests {
     #[test]
     fn formats_markdown_output() {
         let response = SearchResponse {
-            data: vec![
-                SearchResult {
-                    t: 0,
-                    rank: None,
-                    title: "Rust Programming Language".to_string(),
-                    url: "https://www.rust-lang.org".to_string(),
-                    snippet: "A language empowering everyone to build reliable and efficient software.".to_string(),
-                    published: None,
-                },
-            ],
+            data: vec![SearchResult {
+                t: 0,
+                rank: None,
+                title: "Rust Programming Language".to_string(),
+                url: "https://www.rust-lang.org".to_string(),
+                snippet: "A language empowering everyone to build reliable and efficient software."
+                    .to_string(),
+                published: None,
+            }],
         };
 
         let output = format_markdown_response(&response);
@@ -613,16 +611,15 @@ mod tests {
     #[test]
     fn formats_csv_output() {
         let response = SearchResponse {
-            data: vec![
-                SearchResult {
-                    t: 0,
-                    rank: None,
-                    title: "Rust Programming Language".to_string(),
-                    url: "https://www.rust-lang.org".to_string(),
-                    snippet: "A language empowering everyone to build reliable and efficient software.".to_string(),
-                    published: None,
-                },
-            ],
+            data: vec![SearchResult {
+                t: 0,
+                rank: None,
+                title: "Rust Programming Language".to_string(),
+                url: "https://www.rust-lang.org".to_string(),
+                snippet: "A language empowering everyone to build reliable and efficient software."
+                    .to_string(),
+                published: None,
+            }],
         };
 
         let output = format_csv_response(&response);
