@@ -71,6 +71,16 @@ kagi --help
 
 this is the path most people will want.
 
+how to get it:
+
+1. click the top-right menu icon
+2. click `Settings`
+3. click `Advanced` in the left sidebar
+4. scroll down to `Session Link`
+5. click `Copy`
+
+![session-link tutorial](images/tutorials/session-link.gif)
+
 ```bash
 kagi auth set --session-token 'https://kagi.com/search?token=...'
 kagi auth check
@@ -91,6 +101,17 @@ export KAGI_SESSION_TOKEN='...'
 ### api token setup
 
 if you use kagi's paid public api, add an api token as well:
+
+how to get it:
+
+1. click the top-right menu icon
+2. click `Settings`
+3. click `Advanced` in the left sidebar
+4. scroll down to `API`
+5. click `Generate API Token`
+6. click `Copy`
+
+![api token tutorial](images/tutorials/api-token.gif)
 
 ```bash
 export KAGI_API_TOKEN='...'
