@@ -20,13 +20,7 @@
   "contextual": {
     "options": [
       "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
+      "view"
     ]
   },
   "navigation": {
@@ -62,7 +56,6 @@
           {
             "group": "Usage",
             "pages": [
-              "guides/ai-native",
               "guides/workflows",
               "guides/advanced-usage",
               "guides/troubleshooting"

@@ -31,7 +31,7 @@ the main setup path is your existing Kagi session-link URL. paste it into `kagi 
 if you already use Kagi and want to access it from scripts, shell workflows, or small tools, this CLI gives you a practical path without making the paid API flow the starting point.
 
 - use your existing session-link URL for subscriber features
-- get structured JSON for scripts and agents
+- get structured JSON for scripts, agents, and other tooling
 - use one CLI for search, assistant, summarization, and feeds
 - add `KAGI_API_TOKEN` only when you want the paid public API commands
 

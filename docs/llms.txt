@@ -1,14 +1,13 @@
 # kagi CLI
 
-> Complete documentation for the `kagi` CLI, a Rust-based command-line interface for Kagi search, automation, and AI-powered workflows.
+> Complete documentation for the `kagi` CLI, a Rust-based command-line interface for Kagi search, automation, and structured terminal workflows.
 
 ## Guides
 
-- [Introduction](https://kagi.micr.dev/): Complete guide to the *kagi* CLI - a powerful, agent-native command-line interface for Kagi search, automation, and AI-powered workflows.
+- [Introduction](https://kagi.micr.dev/): Complete guide to the *kagi* CLI - a command-line interface for Kagi search, automation, and structured terminal workflows.
 - [Installation](https://kagi.micr.dev/guides/installation): Complete installation guide for *kagi* CLI on macOS, Linux, and Windows including package managers, manual installation, and troubleshooting.
 - [Quickstart](https://kagi.micr.dev/guides/quickstart): Get up and running with *kagi* CLI in minutes - from your first unauthenticated command to full subscriber workflows.
 - [Authentication](https://kagi.micr.dev/guides/authentication): Complete guide to understanding *kagi* CLI authentication - session tokens, API tokens, precedence rules, and security best practices.
-- [AI-native Docs](https://kagi.micr.dev/guides/ai-native): How this Mintlify documentation is structured for AI-assisted reading, writing, and discovery.
 - [Common Workflows](https://kagi.micr.dev/guides/workflows): Practical task-oriented examples for *kagi* CLI - from daily automation to complex research pipelines.
 - [Advanced Usage](https://kagi.micr.dev/guides/advanced-usage): Advanced patterns for scripting, automation, CI/CD integration, and building with *kagi* CLI.
 - [Troubleshooting](https://kagi.micr.dev/guides/troubleshooting): Common issues, error messages, debugging techniques, and solutions for *kagi* CLI problems.
@@ -29,7 +28,7 @@
 - [Auth Matrix](https://kagi.micr.dev/reference/auth-matrix): Complete matrix showing which commands require which authentication tokens and how fallback works.
 - [Output Contract](https://kagi.micr.dev/reference/output-contract): Complete specification of *kagi* CLI output formats - JSON schemas, pretty mode, and error handling.
 - [Error Reference](https://kagi.micr.dev/reference/error-reference): Complete catalog of error messages, their meanings, and solutions.
-- [API and Product Coverage](https://kagi.micr.dev/reference/coverage): Complete reference of what APIs and product features are implemented, planned, and deferred.
+- [API and Product Coverage](https://kagi.micr.dev/reference/coverage): Complete reference of what APIs and product features are implemented today and what is intentionally unavailable.
 
 ## Project
 

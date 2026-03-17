@@ -1,11 +1,11 @@
 ---
 title: "API and Product Coverage"
-description: "Complete reference of what APIs and product features are implemented, planned, and deferred."
+description: "Complete reference of what APIs and product features are implemented today and what is intentionally unavailable."
 ---
 
 # API and Product Coverage
 
-This document provides a comprehensive overview of what the *kagi* CLI currently implements, what is planned, and what is intentionally deferred.
+This document summarizes what the *kagi* CLI implements today and what is intentionally unavailable.
 
 ## Currently Implemented
 
@@ -82,32 +82,21 @@ These require no authentication:
 | `--target-language` | summarize | ✅ |
 | `--thread-id` | assistant | ✅ |
 
-## Deferred Features
+## Not Available
 
 ### Intentionally Excluded
 
-These features were evaluated but excluded:
+These features were evaluated and left out of the public CLI surface:
 
 #### Translate
 
-**Status:** ❌ Deferred
+**Status:** ❌ Not implemented
 
 **Reason:** The current Session Link implementation is not sufficient for `translate.kagi.com` as deployed. The endpoint requires additional authentication mechanisms that are incompatible with the Session Link token model.
 
-**Decision:** Rather than ship a fragile compatibility layer that might break, the feature was excluded pending a viable authentication path.
+**Decision:** Rather than ship a fragile compatibility layer that might break, the feature is excluded until there is a viable authentication path.
 
 **Alternative:** Use the web interface at [translate.kagi.com](https://translate.kagi.com)
-
-### Future Considerations
-
-These may be implemented in future versions:
-
-- Additional summarization engines
-- More Assistant features (beyond prompt/thread)
-- Additional news categories
-- Enhanced lens management
-- Batch operations
-- Export formats
 
 ## API Surface Philosophy
 
@@ -220,44 +209,6 @@ All commands output JSON:
 | JSON parsing | CLI does | Manual |
 | Error handling | CLI manages | Manual |
 
-## Version Compatibility
-
-### API Versions
-
-The CLI targets these API versions:
-
-| API | Version | Notes |
-|-----|---------|-------|
-| Search API | v1 | Current stable |
-| Universal Summarizer | v1 | Current stable |
-| FastGPT | v1 | Current stable |
-| Enrichment | v1 | Current stable |
-
-### Breaking Changes
-
-When Kagi APIs change:
-
-1. CLI is updated to match
-2. Version compatibility notes added
-3. Migration guides provided if needed
-
-## Contributing New Features
-
-### Process
-
-1. **Proposal** - Open issue describing feature
-2. **Feasibility** - Check API/product availability
-3. **Design** - Agree on interface
-4. **Implementation** - Code + tests
-5. **Documentation** - Update docs
-6. **Release** - Include in next version
-
-### Guidelines
-
-- Prefer documented APIs over scraping
-- Maintain backward compatibility
-- Follow existing command patterns
-- Include comprehensive tests
 - Document auth requirements
 
 ## Roadmap

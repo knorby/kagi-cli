@@ -1,21 +1,21 @@
 ---
 title: "Introduction"
-description: "Complete guide to the *kagi* CLI - a powerful, agent-native command-line interface for Kagi search, automation, and AI-powered workflows."
+description: "Complete guide to the *kagi* CLI - a command-line interface for Kagi search, automation, and structured terminal workflows."
 ---
 
 # *kagi* CLI Documentation
 
-Welcome to the comprehensive documentation for `kagi`, a Rust-based command-line interface designed specifically for Kagi subscribers who demand powerful search capabilities, seamless automation, and agent-native workflows. This documentation provides everything you need to understand, install, configure, and master the *kagi* CLI.
+Welcome to the documentation for `kagi`, a Rust-based command-line interface for Kagi search, subscriber features, public feeds, and API-backed workflows. This site covers installation, authentication, command behavior, and practical ways to use the CLI from your terminal.
 
 ## What is *kagi*?
 
-`kagi` is a sophisticated command-line interface that bridges the gap between Kagi's powerful web product and your terminal. Built with Rust for performance and reliability, it provides structured JSON output by default while offering human-friendly formatting when you need it. The CLI wraps a mix of documented Kagi APIs, subscriber-only web-product flows, and public product endpoints behind a single, intuitive command surface.
+`kagi` brings Kagi into the terminal with structured JSON output by default and human-friendly formatting when you want it. The CLI wraps a mix of documented Kagi APIs, subscriber web-product flows, and public product endpoints behind one command surface.
 
 ### Core Philosophy
 
 The *kagi* CLI was designed with three fundamental principles in mind:
 
-1. **Automation-First**: Every command outputs structured JSON by default, making the CLI predictable and scriptable for automation, CI/CD pipelines, and agent workflows.
+1. **Automation-First**: Every command outputs structured JSON by default, making the CLI predictable and scriptable for automation, CI/CD pipelines, and other tooling.
 
 2. **Progressive Enhancement**: Start with simple commands and gradually unlock more powerful features as you need them. The CLI grows with your usage patterns.
 
@@ -33,11 +33,11 @@ If you live in the terminal, *kagi* brings Kagi's exceptional search quality dir
 
 - **Version Control Friendly**: Configuration lives in a simple TOML file that can be committed to dotfiles repositories or shared across teams.
 
-### For AI Agents and Automation
+### For Automation and Tooling
 
-The CLI is specifically designed for agentic workflows:
+The CLI is built to work cleanly in scripted and tool-driven environments:
 
-- **Deterministic Output**: Consistent JSON schemas mean your agents can reliably parse and act on search results.
+- **Deterministic Output**: Consistent JSON schemas make downstream parsing and processing reliable.
 
 - **Exit Codes**: Proper exit codes (0 for success, 1 for errors) enable shell scripting and workflow orchestration.
 
@@ -49,7 +49,7 @@ Unlock the full potential of your Kagi subscription:
 
 - **Lens-Aware Search**: Use your custom Kagi lenses directly from the command line.
 
-- **Assistant Integration**: Prompt Kagi's AI assistant programmatically and continue conversations across sessions.
+- **Assistant Integration**: Prompt Kagi Assistant programmatically and continue conversations across sessions.
 
 - **Subscriber Features**: Access subscriber-only capabilities like the web-based Summarizer with full control over output length and style.
 
