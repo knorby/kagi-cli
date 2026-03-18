@@ -465,6 +465,7 @@ pub async fn execute_translate(
                 &translate_session,
                 request.text.trim(),
                 &translated_text,
+                &target_language,
                 translation_options.as_ref(),
             ),
         ),
@@ -730,45 +731,11 @@ async fn execute_translate_suggestions(
     translate_session: &str,
     context: TranslateSuggestionContext<'_>,
 ) -> Result<TranslationSuggestionsResponse, KagiError> {
-    let mut payload = Map::new();
-    payload.insert(
-        "originalText".to_string(),
-        Value::String(context.source_text.to_string()),
-    );
-    payload.insert(
-        "translatedText".to_string(),
-        Value::String(context.target_text.to_string()),
-    );
-    payload.insert(
-        "sourceLanguage".to_string(),
-        Value::String(context.source_language.to_string()),
-    );
-    payload.insert(
-        "targetLanguage".to_string(),
-        Value::String(context.target_language.to_string()),
-    );
-    payload.insert("language".to_string(), Value::String("en".to_string()));
-    payload.insert(
-        "session_token".to_string(),
-        Value::String(translate_session.to_string()),
-    );
-
-    if let Some(options) = context.translation_options {
-        payload.insert(
-            "translationOptions".to_string(),
-            serde_json::to_value(options).map_err(|error| {
-                KagiError::Parse(format!(
-                    "failed to serialize translate suggestion options: {error}"
-                ))
-            })?,
-        );
-    }
-
     let response = client
         .post(KAGI_TRANSLATE_SUGGESTIONS_URL)
         .header(header::COOKIE, cookie_header)
         .header(header::CONTENT_TYPE, "application/json")
-        .json(&Value::Object(payload))
+        .json(&build_translate_suggestions_payload(context, translate_session).map(Value::Object)?)
         .send()
         .await
         .map_err(map_transport_error)?;
@@ -782,42 +749,23 @@ async fn execute_translate_word_insights(
     translate_session: &str,
     source_text: &str,
     target_text: &str,
+    explanation_language: &str,
     translation_options: Option<&TranslateOptionState>,
 ) -> Result<WordInsightsResponse, KagiError> {
-    let mut payload = Map::new();
-    payload.insert(
-        "original_text".to_string(),
-        Value::String(source_text.to_string()),
-    );
-    payload.insert(
-        "translated_text".to_string(),
-        Value::String(target_text.to_string()),
-    );
-    payload.insert(
-        "target_explanation_language".to_string(),
-        Value::String("en".to_string()),
-    );
-    payload.insert(
-        "session_token".to_string(),
-        Value::String(translate_session.to_string()),
-    );
-
-    if let Some(options) = translation_options {
-        payload.insert(
-            "translation_options".to_string(),
-            serde_json::to_value(options).map_err(|error| {
-                KagiError::Parse(format!(
-                    "failed to serialize translate word-insight options: {error}"
-                ))
-            })?,
-        );
-    }
-
     let response = client
         .post(KAGI_TRANSLATE_WORD_INSIGHTS_URL)
         .header(header::COOKIE, cookie_header)
         .header(header::CONTENT_TYPE, "application/json")
-        .json(&Value::Object(payload))
+        .json(
+            &build_translate_word_insights_payload(
+                source_text,
+                target_text,
+                explanation_language,
+                translate_session,
+                translation_options,
+            )
+            .map(Value::Object)?,
+        )
         .send()
         .await
         .map_err(map_transport_error)?;
@@ -1296,6 +1244,89 @@ fn build_translate_payload(
     Value::Object(payload)
 }
 
+fn build_translate_suggestions_payload(
+    context: TranslateSuggestionContext<'_>,
+    translate_session: &str,
+) -> Result<Map<String, Value>, KagiError> {
+    let mut payload = Map::new();
+    payload.insert(
+        "originalText".to_string(),
+        Value::String(context.source_text.to_string()),
+    );
+    payload.insert(
+        "translatedText".to_string(),
+        Value::String(context.target_text.to_string()),
+    );
+    payload.insert(
+        "sourceLanguage".to_string(),
+        Value::String(context.source_language.to_string()),
+    );
+    payload.insert(
+        "targetLanguage".to_string(),
+        Value::String(context.target_language.to_string()),
+    );
+    payload.insert(
+        "language".to_string(),
+        Value::String(context.target_language.to_string()),
+    );
+    payload.insert(
+        "session_token".to_string(),
+        Value::String(translate_session.to_string()),
+    );
+
+    if let Some(options) = context.translation_options {
+        payload.insert(
+            "translationOptions".to_string(),
+            serde_json::to_value(options).map_err(|error| {
+                KagiError::Parse(format!(
+                    "failed to serialize translate suggestion options: {error}"
+                ))
+            })?,
+        );
+    }
+
+    Ok(payload)
+}
+
+fn build_translate_word_insights_payload(
+    source_text: &str,
+    target_text: &str,
+    explanation_language: &str,
+    translate_session: &str,
+    translation_options: Option<&TranslateOptionState>,
+) -> Result<Map<String, Value>, KagiError> {
+    let mut payload = Map::new();
+    payload.insert(
+        "original_text".to_string(),
+        Value::String(source_text.to_string()),
+    );
+    payload.insert(
+        "translated_text".to_string(),
+        Value::String(target_text.to_string()),
+    );
+    payload.insert(
+        "target_explanation_language".to_string(),
+        Value::String(explanation_language.to_string()),
+    );
+    payload.insert(
+        "session_token".to_string(),
+        Value::String(translate_session.to_string()),
+    );
+
+    if let Some(options) = translation_options {
+        payload.insert(
+            "translation_options".to_string(),
+            serde_json::to_value(options).map_err(|error| {
+                KagiError::Parse(format!(
+                    "failed to serialize translate word-insight options: {error}"
+                ))
+            })?,
+        );
+    }
+
+    Ok(payload)
+}
+
 fn insert_optional_string(payload: &mut Map<String, Value>, key: &str, value: Option<&str>) {
     if let Some(value) = value {
         payload.insert(key.to_string(), Value::String(value.to_string()));
@@ -1616,14 +1647,15 @@ pub struct KagiEnvelope<T> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApiErrorBody, KagiEnvelope, build_translate_option_state, build_translate_payload,
-        capture_optional_translate_section, effective_translate_source_language,
-        extract_set_cookie_value, fake_header_map, finalize_translate_text_response,
-        normalize_aux_quality, normalize_subscriber_summary_input,
-        normalize_subscriber_summary_length, normalize_subscriber_summary_type,
-        parse_assistant_prompt_stream, parse_subscriber_summarize_stream,
-        parse_translate_detect_value, resolve_news_category, resolve_translate_bootstrap,
-        validate_translate_request,
+        ApiErrorBody, KagiEnvelope, TranslateSuggestionContext, build_translate_option_state,
+        build_translate_payload, build_translate_suggestions_payload,
+        build_translate_word_insights_payload, capture_optional_translate_section,
+        effective_translate_source_language, extract_set_cookie_value, fake_header_map,
+        finalize_translate_text_response, normalize_aux_quality,
+        normalize_subscriber_summary_input, normalize_subscriber_summary_length,
+        normalize_subscriber_summary_type, parse_assistant_prompt_stream,
+        parse_subscriber_summarize_stream, parse_translate_detect_value, resolve_news_category,
+        resolve_translate_bootstrap, validate_translate_request,
     };
     use crate::auth::normalize_session_token;
     use crate::types::SubscriberSummarizeRequest;
@@ -2162,6 +2194,43 @@ mod tests {
     }
 
     #[test]
+    fn localizes_translate_suggestions_payload_to_target_language() {
+        let payload = build_translate_suggestions_payload(
+            TranslateSuggestionContext {
+                source_text: "Bonjour tout le monde",
+                target_text: "みなさん、こんにちは",
+                source_language: "fr",
+                target_language: "ja",
+                translation_options: None,
+            },
+            "translate-session",
+        )
+        .expect("payload should build");
+
+        assert_eq!(
+            payload.get("language"),
+            Some(&Value::String("ja".to_string()))
+        );
+    }
+
+    #[test]
+    fn localizes_translate_word_insights_payload_to_target_language() {
+        let payload = build_translate_word_insights_payload(
+            "Bonjour tout le monde",
+            "みなさん、こんにちは",
+            "ja",
+            "translate-session",
+            None,
+        )
+        .expect("payload should build");
+
+        assert_eq!(
+            payload.get("target_explanation_language"),
+            Some(&Value::String("ja".to_string()))
+        );
+    }
+
+    #[test]
     fn normalizes_aux_quality_values() {
         assert_eq!(normalize_aux_quality(None), None);
         assert_eq!(normalize_aux_quality(Some("best")).as_deref(), Some("best"));
@@ -2270,5 +2339,44 @@ mod tests {
         assert!(response.translation_suggestions.is_none());
         assert!(response.word_insights.is_none());
         assert!(response.warnings.is_empty());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live KAGI_SESSION_TOKEN"]
+    async fn live_translate_localizes_auxiliary_metadata_for_non_english_targets() {
+        let token = live_translate_session_token().expect("set KAGI_SESSION_TOKEN for live tests");
+        let request = TranslateCommandRequest {
+            text: "Bonjour tout le monde".to_string(),
+            to: "ja".to_string(),
+            ..sample_translate_request()
+        };
+
+        let response = super::execute_translate(&request, &token)
+            .await
+            .expect("live translate should succeed");
+
+        let suggestions = response
+            .translation_suggestions
+            .as_ref()
+            .expect("suggestions should be present for ja target");
+        let insights = response
+            .word_insights
+            .as_ref()
+            .expect("word insights should be present for ja target");
+
+        assert!(
+            suggestions
+                .suggestions
+                .iter()
+                .any(|entry| !entry.label.is_ascii()),
+            "expected at least one localized suggestion label"
+        );
+        assert!(
+            insights
+                .insights
+                .iter()
+                .any(|entry| !entry.r#type.is_ascii()),
+            "expected at least one localized insight type"
+        );
     }
 }
