@@ -389,23 +389,7 @@ pub async fn execute_translate(
         ));
     }
 
-    if request.text.trim().is_empty() {
-        return Err(KagiError::Config(
-            "translate text cannot be empty".to_string(),
-        ));
-    }
-
-    if request.from.trim().is_empty() {
-        return Err(KagiError::Config(
-            "translate --from cannot be empty".to_string(),
-        ));
-    }
-
-    if request.to.trim().is_empty() {
-        return Err(KagiError::Config(
-            "translate --to cannot be empty".to_string(),
-        ));
-    }
+    validate_translate_request(request)?;
 
     let bootstrap = bootstrap_translate_session(session_token).await?;
     let client = build_client()?;
@@ -422,9 +406,15 @@ pub async fn execute_translate(
         &effective_source_language,
     )
     .await?;
+    let target_language = request.to.clone();
+    let translation = finalize_translate_text_response(
+        translation,
+        &detected_language,
+        &effective_source_language,
+        &target_language,
+    );
     let translation_options = build_translate_option_state(request);
     let translated_text = translation.translation.clone();
-    let target_language = request.to.clone();
     let translate_session = bootstrap.translate_session.clone();
 
     let (alternatives_result, alignments_result, suggestions_result, insights_result) = tokio::join!(
@@ -1263,6 +1253,34 @@ fn build_translate_cookie_header(session_token: &str, translate_session: &str) -
     format!("kagi_session={session_token}; translate_session={translate_session}")
 }
 
+fn validate_translate_request(request: &TranslateCommandRequest) -> Result<(), KagiError> {
+    if request.text.trim().is_empty() {
+        return Err(KagiError::Config(
+            "translate text cannot be empty".to_string(),
+        ));
+    }
+
+    if request.from.trim().is_empty() {
+        return Err(KagiError::Config(
+            "translate --from cannot be empty".to_string(),
+        ));
+    }
+
+    if request.to.trim().is_empty() {
+        return Err(KagiError::Config(
+            "translate --to cannot be empty".to_string(),
+        ));
+    }
+
+    if request.to.eq_ignore_ascii_case("auto") {
+        return Err(KagiError::Config(
+            "translate --to cannot be 'auto'; pass an explicit target language code".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
 fn effective_translate_source_language(
     requested_from: &str,
     detected_language: &TranslateDetectedLanguage,
@@ -1272,6 +1290,20 @@ fn effective_translate_source_language(
     } else {
         requested_from.to_string()
     }
+}
+
+fn finalize_translate_text_response(
+    mut translation: TranslateTextResponse,
+    detected_language: &TranslateDetectedLanguage,
+    effective_source_language: &str,
+    target_language: &str,
+) -> TranslateTextResponse {
+    if translation.detected_language.is_none() {
+        translation.detected_language = Some(detected_language.clone());
+    }
+    translation.source_language = Some(effective_source_language.to_string());
+    translation.target_language = Some(target_language.to_string());
+    translation
 }
 
 fn build_translate_option_state(request: &TranslateCommandRequest) -> Option<TranslateOptionState> {
@@ -1662,17 +1694,69 @@ pub struct KagiEnvelope<T> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApiErrorBody, KagiEnvelope, build_translate_payload, normalize_aux_quality,
+        ApiErrorBody, KagiEnvelope, build_translate_option_state, build_translate_payload,
+        capture_optional_translate_section, effective_translate_source_language,
+        finalize_translate_text_response, normalize_aux_quality,
         normalize_subscriber_summary_input, normalize_subscriber_summary_length,
         normalize_subscriber_summary_type, parse_assistant_prompt_stream,
         parse_subscriber_summarize_stream, parse_translate_detect_value, resolve_news_category,
+        validate_translate_request,
     };
+    use crate::auth::normalize_session_token;
     use crate::types::SubscriberSummarizeRequest;
     use crate::types::{
         FastGptAnswer, NewsBatchCategory, NewsCategoryMetadata, Reference, Summarization,
-        TranslateCommandRequest,
+        TranslateCommandRequest, TranslateDetectedLanguage, TranslateTextResponse,
     };
     use serde_json::{Value, json};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+
+    fn sample_translate_request() -> TranslateCommandRequest {
+        TranslateCommandRequest {
+            text: "Bonjour".to_string(),
+            from: "auto".to_string(),
+            to: "en".to_string(),
+            quality: None,
+            model: None,
+            prediction: None,
+            predicted_language: None,
+            formality: None,
+            speaker_gender: None,
+            addressee_gender: None,
+            language_complexity: None,
+            translation_style: None,
+            context: None,
+            dictionary_language: None,
+            time_format: None,
+            use_definition_context: None,
+            enable_language_features: None,
+            preserve_formatting: None,
+            context_memory: None,
+            fetch_alternatives: true,
+            fetch_word_insights: true,
+            fetch_suggestions: true,
+            fetch_alignments: true,
+        }
+    }
+
+    fn sample_detected_language() -> TranslateDetectedLanguage {
+        TranslateDetectedLanguage {
+            iso: "fr".to_string(),
+            label: "French".to_string(),
+            is_uncertain: false,
+            is_mixed: false,
+            alternatives: vec![],
+        }
+    }
+
+    fn live_translate_session_token() -> Option<String> {
+        std::env::var("KAGI_SESSION_TOKEN")
+            .ok()
+            .and_then(|value| normalize_session_token(&value).ok())
+    }
 
     #[test]
     fn parses_summarize_envelope() {
@@ -1911,6 +1995,91 @@ mod tests {
     }
 
     #[test]
+    fn rejects_empty_translate_detect_array() {
+        let error = parse_translate_detect_value(Value::Array(vec![]))
+            .expect_err("empty array should fail");
+        assert!(error.to_string().contains("empty array"));
+    }
+
+    #[test]
+    fn rejects_translate_target_auto_value() {
+        let mut request = sample_translate_request();
+        request.to = "auto".to_string();
+
+        let error = validate_translate_request(&request).expect_err("auto target should fail");
+        assert!(error.to_string().contains("explicit target language code"));
+    }
+
+    #[test]
+    fn uses_detected_source_language_when_translate_from_is_auto() {
+        let source = effective_translate_source_language("auto", &sample_detected_language());
+        assert_eq!(source, "fr");
+    }
+
+    #[test]
+    fn preserves_explicit_translate_source_language() {
+        let source = effective_translate_source_language("es", &sample_detected_language());
+        assert_eq!(source, "es");
+    }
+
+    #[test]
+    fn backfills_translate_language_metadata() {
+        let translation = TranslateTextResponse {
+            translation: "Hello everyone".to_string(),
+            source_language: None,
+            target_language: None,
+            detected_language: None,
+            definition: None,
+        };
+
+        let finalized =
+            finalize_translate_text_response(translation, &sample_detected_language(), "fr", "en");
+
+        assert_eq!(finalized.source_language.as_deref(), Some("fr"));
+        assert_eq!(finalized.target_language.as_deref(), Some("en"));
+        assert_eq!(
+            finalized
+                .detected_language
+                .as_ref()
+                .map(|value| value.iso.as_str()),
+            Some("fr")
+        );
+    }
+
+    #[test]
+    fn keeps_existing_translate_detected_language_when_present() {
+        let translation = TranslateTextResponse {
+            translation: "Hello everyone".to_string(),
+            source_language: None,
+            target_language: None,
+            detected_language: Some(TranslateDetectedLanguage {
+                iso: "es".to_string(),
+                label: "Spanish".to_string(),
+                is_uncertain: false,
+                is_mixed: false,
+                alternatives: vec![],
+            }),
+            definition: None,
+        };
+
+        let finalized =
+            finalize_translate_text_response(translation, &sample_detected_language(), "fr", "en");
+
+        assert_eq!(
+            finalized
+                .detected_language
+                .as_ref()
+                .map(|value| value.iso.as_str()),
+            Some("es")
+        );
+    }
+
+    #[test]
+    fn omits_empty_translate_option_state() {
+        assert!(build_translate_option_state(&sample_translate_request()).is_none());
+    }
+
+    #[test]
     fn builds_translate_payload_with_optional_fields() {
         let request = TranslateCommandRequest {
             text: "Bonjour".to_string(),
@@ -1958,6 +2127,7 @@ mod tests {
 
     #[test]
     fn normalizes_aux_quality_values() {
+        assert_eq!(normalize_aux_quality(None), None);
         assert_eq!(normalize_aux_quality(Some("best")).as_deref(), Some("best"));
         assert_eq!(
             normalize_aux_quality(Some("deep_contextual")).as_deref(),
@@ -1967,5 +2137,102 @@ mod tests {
             normalize_aux_quality(Some("standard")).as_deref(),
             Some("standard")
         );
+    }
+
+    #[tokio::test]
+    async fn skips_disabled_translate_optional_sections_without_polling() {
+        let polled = Arc::new(AtomicBool::new(false));
+        let future_polled = Arc::clone(&polled);
+
+        let (value, warning) =
+            capture_optional_translate_section("word_insights", false, async move {
+                future_polled.store(true, Ordering::SeqCst);
+                Ok::<_, crate::error::KagiError>("value")
+            })
+            .await;
+
+        assert!(value.is_none());
+        assert!(warning.is_none());
+        assert!(!polled.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn captures_translate_optional_section_failures_as_warnings() {
+        let (value, warning) = capture_optional_translate_section("word_insights", true, async {
+            Err::<Value, _>(crate::error::KagiError::Network(
+                "temporary upstream failure".to_string(),
+            ))
+        })
+        .await;
+
+        assert!(value.is_none());
+        let warning = warning.expect("warning should be returned");
+        assert_eq!(warning.section, "word_insights");
+        assert!(warning.message.contains("temporary upstream failure"));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live KAGI_SESSION_TOKEN"]
+    async fn live_translate_populates_language_metadata_and_sections() {
+        let token = live_translate_session_token().expect("set KAGI_SESSION_TOKEN for live tests");
+        let request = TranslateCommandRequest {
+            text: "Bonjour tout le monde".to_string(),
+            ..sample_translate_request()
+        };
+
+        let response = super::execute_translate(&request, &token)
+            .await
+            .expect("live translate should succeed");
+
+        assert_eq!(response.detected_language.iso, "fr");
+        assert_eq!(response.translation.source_language.as_deref(), Some("fr"));
+        assert_eq!(response.translation.target_language.as_deref(), Some("en"));
+        assert!(!response.translation.translation.trim().is_empty());
+
+        for (section, present) in [
+            ("alternatives", response.alternatives.is_some()),
+            ("text_alignments", response.text_alignments.is_some()),
+            (
+                "translation_suggestions",
+                response.translation_suggestions.is_some(),
+            ),
+            ("word_insights", response.word_insights.is_some()),
+        ] {
+            let warned = response
+                .warnings
+                .iter()
+                .any(|warning| warning.section == section);
+            assert!(
+                present || warned,
+                "expected {section} to be present or downgraded to a warning"
+            );
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live KAGI_SESSION_TOKEN"]
+    async fn live_translate_core_only_skips_auxiliary_sections() {
+        let token = live_translate_session_token().expect("set KAGI_SESSION_TOKEN for live tests");
+        let request = TranslateCommandRequest {
+            text: "Bonjour tout le monde".to_string(),
+            to: "ja".to_string(),
+            fetch_alternatives: false,
+            fetch_word_insights: false,
+            fetch_suggestions: false,
+            fetch_alignments: false,
+            ..sample_translate_request()
+        };
+
+        let response = super::execute_translate(&request, &token)
+            .await
+            .expect("live translate should succeed");
+
+        assert_eq!(response.translation.source_language.as_deref(), Some("fr"));
+        assert_eq!(response.translation.target_language.as_deref(), Some("ja"));
+        assert!(response.alternatives.is_none());
+        assert!(response.text_alignments.is_none());
+        assert!(response.translation_suggestions.is_none());
+        assert!(response.word_insights.is_none());
+        assert!(response.warnings.is_empty());
     }
 }

@@ -402,6 +402,10 @@ pub struct TranslateDetectedLanguage {
 pub struct TranslateTextResponse {
     pub translation: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_language: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_language: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detected_language: Option<TranslateDetectedLanguage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub definition: Option<Value>,
