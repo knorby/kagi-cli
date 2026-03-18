@@ -7,6 +7,8 @@ description: "Complete reference for *kagi* translate command - translate text t
 
 Translate text through Kagi Translate and return one JSON envelope with the core translation plus the auxiliary text-mode sections.
 
+![Translate demo](/images/demos/translate.gif)
+
 ## Synopsis
 
 ```bash
@@ -27,6 +29,8 @@ By default the command fetches:
 - word insights
 
 If an auxiliary section fails, the core translation still succeeds and the failure is recorded in `warnings`.
+
+Plain `kagi translate "..."` means `--from auto --to en`. The CLI detects the source language first, then translates to English unless you pass `--to`.
 
 ## Authentication
 
@@ -189,7 +193,7 @@ Skip the text alignments call.
 
 ## Examples
 
-### Basic Translation
+### Basic Translation to English
 
 ```bash
 kagi translate "Bonjour tout le monde"

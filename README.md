@@ -208,6 +208,14 @@ translate text and keep all text-mode extras:
 kagi translate "Bonjour tout le monde"
 ```
 
+plain `kagi translate "..."` means `--from auto --to en`.
+
+translate to a specific target language:
+
+```bash
+kagi translate "Bonjour tout le monde" --to ja
+```
+
 translate only the core text result:
 
 ```bash
@@ -241,7 +249,9 @@ kagi enrich news "browser privacy"
 
 ## what it looks like
 
-if you want a quick feel for the cli before installing it, this is the kind of output you get from the subscriber summarizer, assistant, and public news feed:
+if you want a quick feel for the cli before installing it, this is the kind of output you get from search, translate, the subscriber summarizer, assistant, and public news feed:
+
+![translate demo](images/demos/translate.gif)
 
 ![summarize demo](images/demos/summarize.gif)
 
