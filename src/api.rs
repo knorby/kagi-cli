@@ -591,33 +591,7 @@ async fn bootstrap_translate_session(
         .await
         .map_err(map_transport_error)?;
 
-    match response.status() {
-        StatusCode::OK => {
-            let translate_session = extract_set_cookie_value(
-                response.headers(),
-                "translate_session",
-            )
-            .ok_or_else(|| {
-                KagiError::Auth(
-                    "translate bootstrap did not mint a translate_session cookie".to_string(),
-                )
-            })?;
-
-            Ok(TranslateBootstrapResult {
-                translate_session,
-                method: "reqwest(set-cookie bootstrap)".to_string(),
-            })
-        }
-        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Err(KagiError::Auth(
-            "invalid or expired Kagi session token for Kagi Translate".to_string(),
-        )),
-        status if status.is_server_error() => Err(KagiError::Network(format!(
-            "Kagi Translate bootstrap server error: HTTP {status}"
-        ))),
-        status => Err(KagiError::Network(format!(
-            "unexpected Kagi Translate bootstrap response status: HTTP {status}"
-        ))),
-    }
+    resolve_translate_bootstrap(response.status(), response.headers())
 }
 
 async fn execute_translate_detect(
@@ -1383,6 +1357,36 @@ fn extract_set_cookie_value(headers: &header::HeaderMap, name: &str) -> Option<S
         })
 }
 
+fn resolve_translate_bootstrap(
+    status: StatusCode,
+    headers: &header::HeaderMap,
+) -> Result<TranslateBootstrapResult, KagiError> {
+    match status {
+        StatusCode::OK => {
+            let translate_session = extract_set_cookie_value(headers, "translate_session")
+                .ok_or_else(|| {
+                    KagiError::Auth(
+                        "translate bootstrap did not mint a translate_session cookie".to_string(),
+                    )
+                })?;
+
+            Ok(TranslateBootstrapResult {
+                translate_session,
+                method: "reqwest(set-cookie bootstrap)".to_string(),
+            })
+        }
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Err(KagiError::Auth(
+            "invalid or expired Kagi session token for Kagi Translate".to_string(),
+        )),
+        status if status.is_server_error() => Err(KagiError::Network(format!(
+            "Kagi Translate bootstrap server error: HTTP {status}"
+        ))),
+        status => Err(KagiError::Network(format!(
+            "unexpected Kagi Translate bootstrap response status: HTTP {status}"
+        ))),
+    }
+}
+
 #[cfg(test)]
 fn fake_header_map(set_cookies: &[&str]) -> header::HeaderMap {
     let mut headers = header::HeaderMap::new();
@@ -1397,8 +1401,6 @@ fn fake_header_map(set_cookies: &[&str]) -> header::HeaderMap {
 
 #[derive(Debug, Deserialize)]
 struct ApiErrorBody {
-    #[allow(dead_code)]
-    meta: Option<serde_json::Value>,
     error: Option<Vec<ApiErrorItem>>,
 }
 
@@ -1620,7 +1622,8 @@ mod tests {
         normalize_aux_quality, normalize_subscriber_summary_input,
         normalize_subscriber_summary_length, normalize_subscriber_summary_type,
         parse_assistant_prompt_stream, parse_subscriber_summarize_stream,
-        parse_translate_detect_value, resolve_news_category, validate_translate_request,
+        parse_translate_detect_value, resolve_news_category, resolve_translate_bootstrap,
+        validate_translate_request,
     };
     use crate::auth::normalize_session_token;
     use crate::types::SubscriberSummarizeRequest;
@@ -1628,6 +1631,7 @@ mod tests {
         FastGptAnswer, NewsBatchCategory, NewsCategoryMetadata, Reference, Summarization,
         TranslateCommandRequest, TranslateDetectedLanguage, TranslateTextResponse,
     };
+    use reqwest::StatusCode;
     use serde_json::{Value, json};
     use std::sync::{
         Arc,
@@ -1931,6 +1935,37 @@ mod tests {
     }
 
     #[test]
+    fn rejects_empty_translate_text() {
+        let mut request = sample_translate_request();
+        request.text = "   ".to_string();
+
+        let error = validate_translate_request(&request).expect_err("empty text should fail");
+        assert!(error.to_string().contains("translate text cannot be empty"));
+    }
+
+    #[test]
+    fn rejects_empty_translate_source_language() {
+        let mut request = sample_translate_request();
+        request.from = "   ".to_string();
+
+        let error = validate_translate_request(&request).expect_err("empty source should fail");
+        assert!(
+            error
+                .to_string()
+                .contains("translate --from cannot be empty")
+        );
+    }
+
+    #[test]
+    fn rejects_empty_translate_target_language() {
+        let mut request = sample_translate_request();
+        request.to = "   ".to_string();
+
+        let error = validate_translate_request(&request).expect_err("empty target should fail");
+        assert!(error.to_string().contains("translate --to cannot be empty"));
+    }
+
+    #[test]
     fn extracts_translate_session_from_set_cookie_headers() {
         let headers = fake_header_map(&[
             "translate_language=en; Max-Age=31536000; Path=/; HttpOnly; Secure; SameSite=Lax",
@@ -1955,6 +1990,48 @@ mod tests {
     }
 
     #[test]
+    fn resolves_translate_bootstrap_from_success_cookie() {
+        let headers = fake_header_map(&[
+            "translate_session=abc.def.ghi; Path=/; HttpOnly; Secure; SameSite=Lax",
+        ]);
+
+        let bootstrap =
+            resolve_translate_bootstrap(StatusCode::OK, &headers).expect("bootstrap resolves");
+
+        assert_eq!(bootstrap.translate_session, "abc.def.ghi");
+        assert_eq!(bootstrap.method, "reqwest(set-cookie bootstrap)");
+    }
+
+    #[test]
+    fn rejects_translate_bootstrap_success_without_cookie() {
+        let headers = fake_header_map(&[]);
+
+        let error = resolve_translate_bootstrap(StatusCode::OK, &headers)
+            .expect_err("missing cookie should fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("did not mint a translate_session cookie")
+        );
+    }
+
+    #[test]
+    fn maps_translate_bootstrap_auth_statuses() {
+        let headers = fake_header_map(&[]);
+
+        for status in [StatusCode::UNAUTHORIZED, StatusCode::FORBIDDEN] {
+            let error =
+                resolve_translate_bootstrap(status, &headers).expect_err("auth status should fail");
+            assert!(
+                error
+                    .to_string()
+                    .contains("invalid or expired Kagi session token")
+            );
+        }
+    }
+
+    #[test]
     fn uses_detected_source_language_when_translate_from_is_auto() {
         let source = effective_translate_source_language("auto", &sample_detected_language());
         assert_eq!(source, "fr");
@@ -1964,6 +2041,21 @@ mod tests {
     fn preserves_explicit_translate_source_language() {
         let source = effective_translate_source_language("es", &sample_detected_language());
         assert_eq!(source, "es");
+    }
+
+    #[test]
+    fn falls_back_to_requested_source_when_detected_iso_is_empty() {
+        let detected_language = TranslateDetectedLanguage {
+            iso: String::new(),
+            label: "Unknown".to_string(),
+            is_uncertain: true,
+            is_mixed: false,
+            alternatives: vec![],
+        };
+
+        let source = effective_translate_source_language("auto", &detected_language);
+
+        assert_eq!(source, "auto");
     }
 
     #[test]

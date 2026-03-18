@@ -161,14 +161,6 @@ pub async fn execute_api_search(
     }
 }
 
-/// Legacy search function for backward compatibility.
-/// Consider using `search_with_lens` for lens support.
-#[allow(dead_code)]
-pub async fn search(query: &str, token: &str) -> Result<String, KagiError> {
-    let request = SearchRequest::new(query);
-    search_with_lens(&request, token).await
-}
-
 pub async fn execute_search(
     request: &SearchRequest,
     token: &str,
