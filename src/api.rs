@@ -14,14 +14,15 @@ use crate::parser::parse_assistant_thread_list;
 #[cfg(test)]
 use crate::types::ApiMeta;
 use crate::types::{
-    AssistantMessage, AssistantMeta, AssistantPromptRequest, AssistantPromptResponse,
-    AssistantThread, AssistantThreadDeleteResponse, AssistantThreadExportResponse,
-    AssistantThreadListResponse, AssistantThreadOpenResponse, AssistantThreadPagination,
-    EnrichResponse, FastGptRequest, FastGptResponse, NewsBatchCategories, NewsBatchCategory,
-    NewsCategoriesResponse, NewsCategoryMetadata, NewsCategoryMetadataList, NewsChaos,
-    NewsChaosResponse, NewsLatestBatch, NewsResolvedCategory, NewsStoriesPayload,
-    NewsStoriesResponse, SmallWebFeed, SubscriberSummarization, SubscriberSummarizeMeta,
-    SubscriberSummarizeRequest, SubscriberSummarizeResponse, SummarizeRequest, SummarizeResponse,
+    AskPageRequest, AskPageResponse, AskPageSource, AssistantMessage, AssistantMeta,
+    AssistantPromptRequest, AssistantPromptResponse, AssistantThread,
+    AssistantThreadDeleteResponse, AssistantThreadExportResponse, AssistantThreadListResponse,
+    AssistantThreadOpenResponse, AssistantThreadPagination, EnrichResponse, FastGptRequest,
+    FastGptResponse, NewsBatchCategories, NewsBatchCategory, NewsCategoriesResponse,
+    NewsCategoryMetadata, NewsCategoryMetadataList, NewsChaos, NewsChaosResponse, NewsLatestBatch,
+    NewsResolvedCategory, NewsStoriesPayload, NewsStoriesResponse, SmallWebFeed,
+    SubscriberSummarization, SubscriberSummarizeMeta, SubscriberSummarizeRequest,
+    SubscriberSummarizeResponse, SummarizeRequest, SummarizeResponse,
 };
 
 const USER_AGENT: &str = "kagi-cli/0.1.0 (+https://github.com/)";
@@ -433,6 +434,36 @@ pub async fn execute_assistant_thread_export(
             "unexpected Kagi Assistant export response status: HTTP {status}"
         ))),
     }
+}
+
+pub async fn execute_ask_page(
+    request: &AskPageRequest,
+    token: &str,
+) -> Result<AskPageResponse, KagiError> {
+    let source_url = normalize_ask_page_url(&request.url)?;
+    let question = normalize_ask_page_question(&request.question)?;
+    let assistant = execute_assistant_prompt(
+        &AssistantPromptRequest {
+            query: build_ask_page_prompt(&source_url, &question),
+            thread_id: None,
+            model: None,
+            lens_id: None,
+            internet_access: None,
+            personalizations: None,
+        },
+        token,
+    )
+    .await?;
+
+    Ok(AskPageResponse {
+        meta: assistant.meta,
+        source: AskPageSource {
+            url: source_url,
+            question,
+        },
+        thread: assistant.thread,
+        message: assistant.message,
+    })
 }
 
 pub async fn execute_fastgpt(
@@ -1159,6 +1190,39 @@ fn format_client_error_suffix(body: &str) -> String {
     format!("; {trimmed}")
 }
 
+fn normalize_ask_page_url(raw: &str) -> Result<String, KagiError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(KagiError::Config(
+            "ask-page URL cannot be empty".to_string(),
+        ));
+    }
+
+    let url = Url::parse(trimmed)
+        .map_err(|error| KagiError::Config(format!("invalid ask-page URL: {error}")))?;
+    match url.scheme() {
+        "http" | "https" => Ok(url.to_string()),
+        scheme => Err(KagiError::Config(format!(
+            "ask-page URL must use http or https, got `{scheme}`"
+        ))),
+    }
+}
+
+fn normalize_ask_page_question(raw: &str) -> Result<String, KagiError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(KagiError::Config(
+            "ask-page question cannot be empty".to_string(),
+        ));
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn build_ask_page_prompt(url: &str, question: &str) -> String {
+    format!("{url}\n{question}")
+}
+
 #[derive(Debug, Deserialize)]
 struct ApiErrorBody {
     #[allow(dead_code)]
@@ -1365,7 +1429,8 @@ pub struct KagiEnvelope<T> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApiErrorBody, KagiEnvelope, normalize_assistant_query, normalize_assistant_thread_id,
+        ApiErrorBody, KagiEnvelope, build_ask_page_prompt, normalize_ask_page_question,
+        normalize_ask_page_url, normalize_assistant_query, normalize_assistant_thread_id,
         normalize_subscriber_summary_input, normalize_subscriber_summary_length,
         normalize_subscriber_summary_type, parse_assistant_prompt_stream,
         parse_assistant_thread_delete_stream, parse_assistant_thread_list_stream,
@@ -1377,7 +1442,7 @@ mod tests {
         execute_assistant_thread_get, execute_assistant_thread_list,
     };
     use crate::auth::{SESSION_TOKEN_ENV, load_credential_inventory};
-    use crate::types::SubscriberSummarizeRequest;
+    use crate::types::{AskPageRequest, SubscriberSummarizeRequest};
     use crate::types::{
         AssistantPromptRequest, FastGptAnswer, NewsBatchCategory, NewsCategoryMetadata, Reference,
         Summarization,
@@ -1759,5 +1824,64 @@ mod tests {
             .await
             .expect("assistant thread delete should succeed");
         assert_eq!(deleted.deleted_thread_ids, vec![thread_id]);
+    }
+
+    #[test]
+    fn normalizes_ask_page_url() {
+        let normalized = normalize_ask_page_url("https://rust-lang.org").expect("url parses");
+        assert_eq!(normalized, "https://rust-lang.org/");
+    }
+
+    #[test]
+    fn rejects_invalid_ask_page_url() {
+        let error = normalize_ask_page_url("rust-lang.org").expect_err("url should fail");
+        assert!(error.to_string().contains("invalid ask-page URL"));
+    }
+
+    #[test]
+    fn rejects_non_http_ask_page_url() {
+        let error =
+            normalize_ask_page_url("file:///tmp/page.html").expect_err("scheme should fail");
+        assert!(error.to_string().contains("http or https"));
+    }
+
+    #[test]
+    fn rejects_empty_ask_page_question() {
+        let error = normalize_ask_page_question("   ").expect_err("question should fail");
+        assert!(error.to_string().contains("question cannot be empty"));
+    }
+
+    #[test]
+    fn builds_ask_page_prompt() {
+        let prompt = build_ask_page_prompt("https://rust-lang.org/", "What is this page about?");
+        assert_eq!(prompt, "https://rust-lang.org/\nWhat is this page about?");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live KAGI_SESSION_TOKEN"]
+    async fn live_ask_page_rust_homepage() {
+        let Some(token) = live_session_token() else {
+            eprintln!("skipping live ask-page test because {SESSION_TOKEN_ENV} is not set");
+            return;
+        };
+
+        let response = super::execute_ask_page(
+            &AskPageRequest {
+                url: "https://rust-lang.org/".to_string(),
+                question: "What is this page about?".to_string(),
+            },
+            &token,
+        )
+        .await
+        .expect("live ask-page should succeed");
+
+        assert_eq!(response.source.url, "https://rust-lang.org/");
+        assert!(!response.thread.id.is_empty());
+        let answer = response
+            .message
+            .markdown
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        assert!(answer.contains("rust"));
     }
 }

@@ -87,6 +87,8 @@ pub enum Commands {
     News(NewsArgs),
     /// Prompt Kagi Assistant and manage Assistant threads
     Assistant(AssistantArgs),
+    /// Ask Kagi Assistant about a specific web page
+    AskPage(AskPageArgs),
     /// Answer a query with Kagi's FastGPT API
     Fastgpt(FastGptArgs),
     /// Query Kagi's enrichment indexes
@@ -348,6 +350,17 @@ pub struct AssistantThreadExportArgs {
     /// Export format
     #[arg(long, value_name = "FORMAT", value_enum, default_value = "markdown")]
     pub format: AssistantThreadExportFormat,
+}
+
+#[derive(Debug, Args)]
+pub struct AskPageArgs {
+    /// Absolute page URL to discuss with Assistant
+    #[arg(value_name = "URL")]
+    pub url: String,
+
+    /// Question to ask about the page
+    #[arg(value_name = "QUESTION")]
+    pub question: String,
 }
 
 #[derive(Debug, Args)]
