@@ -659,5 +659,4 @@ mod tests {
             .expect_err("missing token param should fail");
         assert!(error.to_string().contains("token="));
     }
-
 }
