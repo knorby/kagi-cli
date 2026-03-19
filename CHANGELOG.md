@@ -7,6 +7,23 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+
+- `kagi quick` with JSON, compact, pretty, and markdown output plus structured references and follow-up questions
+- `kagi translate` text-mode support with detection, alternatives, alignments, suggestions, and word insights
+
+### Changed
+
+- Expanded docs, demos, and output contracts to cover Quick Answer and Translate alongside the existing search and Assistant flows
+- Optimized bundled demo and tutorial image assets across the repo
+
+### Fixed
+
+- Made translate bootstrap retry the flaky missing-cookie path instead of failing on the first transient response
+- Fixed the release workflow package-index sync step to export the GitHub token for the Homebrew tap and Scoop bucket push path
+
 ## [0.2.0]
 
 ### Added

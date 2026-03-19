@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::future::Future;
+use std::time::Duration;
 
 use reqwest::{Client, StatusCode, Url, header};
 use scraper::Html;
@@ -9,6 +10,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::json;
 use serde_json::{Map, Value};
+use tokio::time::sleep;
 
 use crate::error::KagiError;
 use crate::parser::parse_assistant_thread_list;
@@ -29,7 +31,11 @@ use crate::types::{
     TranslateWarning, TranslationSuggestionsResponse, WordInsightsResponse,
 };
 
-const USER_AGENT: &str = "kagi-cli/0.1.0 (+https://github.com/)";
+const USER_AGENT: &str = concat!(
+    "kagi-cli/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/Microck/kagi-cli)"
+);
 const KAGI_SUMMARIZE_URL: &str = "https://kagi.com/api/v0/summarize";
 const KAGI_SUBSCRIBER_SUMMARIZE_URL: &str = "https://kagi.com/mother/summary_labs";
 const KAGI_NEWS_LATEST_URL: &str = "https://news.kagi.com/api/batches/latest";
@@ -52,6 +58,9 @@ const KAGI_TRANSLATE_SUGGESTIONS_URL: &str =
     "https://translate.kagi.com/api/translation-suggestions";
 const KAGI_TRANSLATE_WORD_INSIGHTS_URL: &str = "https://translate.kagi.com/api/word-insights";
 const ASSISTANT_ZERO_BRANCH_UUID: &str = "00000000-0000-4000-0000-000000000000";
+const TRANSLATE_BOOTSTRAP_MAX_ATTEMPTS: usize = 3;
+const TRANSLATE_BOOTSTRAP_MISSING_COOKIE_ERROR: &str =
+    "translate bootstrap did not mint a translate_session cookie";
 
 pub async fn execute_summarize(
     request: &SummarizeRequest,
@@ -686,14 +695,32 @@ async fn bootstrap_translate_session(
     session_token: &str,
 ) -> Result<TranslateBootstrapResult, KagiError> {
     let client = build_client()?;
-    let response = client
-        .get("https://translate.kagi.com/")
-        .header(header::COOKIE, format!("kagi_session={session_token}"))
-        .send()
-        .await
-        .map_err(map_transport_error)?;
+    let mut last_error = None;
 
-    resolve_translate_bootstrap(response.status(), response.headers())
+    for attempt in 0..TRANSLATE_BOOTSTRAP_MAX_ATTEMPTS {
+        let response = client
+            .get("https://translate.kagi.com/")
+            .header(header::COOKIE, format!("kagi_session={session_token}"))
+            .send()
+            .await
+            .map_err(map_transport_error)?;
+
+        match resolve_translate_bootstrap(response.status(), response.headers()) {
+            Ok(result) => return Ok(result),
+            Err(error)
+                if attempt + 1 < TRANSLATE_BOOTSTRAP_MAX_ATTEMPTS
+                    && should_retry_translate_bootstrap(&error) =>
+            {
+                last_error = Some(error);
+                sleep(Duration::from_millis(250 * (attempt as u64 + 1))).await;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        KagiError::Network("Kagi Translate bootstrap failed after retries".to_string())
+    }))
 }
 
 async fn execute_translate_detect(
@@ -1854,9 +1881,7 @@ fn resolve_translate_bootstrap(
         StatusCode::OK => {
             let translate_session = extract_set_cookie_value(headers, "translate_session")
                 .ok_or_else(|| {
-                    KagiError::Auth(
-                        "translate bootstrap did not mint a translate_session cookie".to_string(),
-                    )
+                    KagiError::Auth(TRANSLATE_BOOTSTRAP_MISSING_COOKIE_ERROR.to_string())
                 })?;
 
             Ok(TranslateBootstrapResult {
@@ -1873,6 +1898,14 @@ fn resolve_translate_bootstrap(
         status => Err(KagiError::Network(format!(
             "unexpected Kagi Translate bootstrap response status: HTTP {status}"
         ))),
+    }
+}
+
+fn should_retry_translate_bootstrap(error: &KagiError) -> bool {
+    match error {
+        KagiError::Auth(message) => message == TRANSLATE_BOOTSTRAP_MISSING_COOKIE_ERROR,
+        KagiError::Network(_) => true,
+        _ => false,
     }
 }
 
@@ -2175,8 +2208,9 @@ pub struct KagiEnvelope<T> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApiErrorBody, KagiEnvelope, TranslateSuggestionContext, build_ask_page_prompt,
-        build_translate_option_state, build_translate_payload, build_translate_suggestions_payload,
+        ApiErrorBody, KagiEnvelope, TRANSLATE_BOOTSTRAP_MISSING_COOKIE_ERROR,
+        TranslateSuggestionContext, build_ask_page_prompt, build_translate_option_state,
+        build_translate_payload, build_translate_suggestions_payload,
         build_translate_word_insights_payload, capture_optional_translate_section,
         effective_translate_source_language, extract_set_cookie_value, fake_header_map,
         finalize_translate_text_response, normalize_ask_page_question, normalize_ask_page_url,
@@ -2186,13 +2220,14 @@ mod tests {
         parse_assistant_thread_delete_stream, parse_assistant_thread_list_stream,
         parse_assistant_thread_open_stream, parse_content_disposition_filename,
         parse_subscriber_summarize_stream, parse_translate_detect_value, resolve_news_category,
-        resolve_translate_bootstrap, validate_translate_request,
+        resolve_translate_bootstrap, should_retry_translate_bootstrap, validate_translate_request,
     };
     use crate::api::{
         execute_assistant_prompt, execute_assistant_thread_delete, execute_assistant_thread_export,
         execute_assistant_thread_get, execute_assistant_thread_list,
     };
     use crate::auth::{SESSION_TOKEN_ENV, load_credential_inventory, normalize_session_token};
+    use crate::error::KagiError;
     use crate::types::{AskPageRequest, SubscriberSummarizeRequest};
     use crate::types::{
         AssistantPromptRequest, FastGptAnswer, NewsBatchCategory, NewsCategoryMetadata, Reference,
@@ -2821,6 +2856,19 @@ mod tests {
                     .contains("invalid or expired Kagi session token")
             );
         }
+    }
+
+    #[test]
+    fn retries_translate_bootstrap_when_cookie_is_missing() {
+        let error = KagiError::Auth(TRANSLATE_BOOTSTRAP_MISSING_COOKIE_ERROR.to_string());
+        assert!(should_retry_translate_bootstrap(&error));
+    }
+
+    #[test]
+    fn does_not_retry_translate_bootstrap_for_invalid_session_auth() {
+        let error =
+            KagiError::Auth("invalid or expired Kagi session token for Kagi Translate".to_string());
+        assert!(!should_retry_translate_bootstrap(&error));
     }
 
     #[test]

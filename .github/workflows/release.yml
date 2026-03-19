@@ -180,6 +180,7 @@ jobs:
           fi
 
           SYNC_TOKEN="$(printf '%s' "$REPO_SYNC_TOKEN" | tr -d '\r\n')"
+          export SYNC_TOKEN
 
           VERSION="${RELEASE_TAG#v}"
           CHECKSUM_FILE="dist/kagi-${RELEASE_TAG}-checksums.txt"
