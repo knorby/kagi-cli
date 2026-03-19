@@ -29,6 +29,7 @@ These features use the subscriber web product (Session Token):
 |---------|---------|--------|
 | Base Search | `kagi search` | ✅ Implemented (session path) |
 | Lens Search | `kagi search --lens` | ✅ Implemented |
+| Filtered Search | `kagi search --region/--time/...` | ✅ Implemented |
 | Web Summarizer | `kagi summarize --subscriber` | ✅ Implemented |
 | Assistant prompt + thread management | `kagi assistant` | ✅ Implemented |
 | Ask Questions About a Page | `kagi ask-page` | ✅ Implemented |
@@ -52,6 +53,7 @@ These require no authentication:
 |---------|-------------|------|--------|
 | `search` | Kagi search | API/Session | ✅ |
 | `search --lens` | Lens search | Session | ✅ |
+| `search` with filters | Search with region, time, date, order, verbatim, or personalization filters | Session | ✅ |
 | `auth` | Credential management | None | ✅ |
 | `summarize` | Public API summarizer | API | ✅ |
 | `summarize --subscriber` | Web summarizer | Session | ✅ |
@@ -69,6 +71,13 @@ These require no authentication:
 |--------|----------|--------|
 | `--format pretty` | search | ✅ |
 | `--lens` | search | ✅ |
+| `--region` | search, batch | ✅ |
+| `--time` | search, batch | ✅ |
+| `--from-date` | search, batch | ✅ |
+| `--to-date` | search, batch | ✅ |
+| `--order` | search, batch | ✅ |
+| `--verbatim` | search, batch | ✅ |
+| `--personalized` / `--no-personalized` | search, batch | ✅ |
 | `--limit` | news, smallweb | ✅ |
 | `--category` | news | ✅ |
 | `--list-categories` | news | ✅ |
@@ -128,7 +137,7 @@ These features were evaluated and left out of the public CLI surface:
 
 | Type | Support | Commands |
 |------|---------|----------|
-| Session Token | ✅ | search, ask-page, summarize --subscriber, assistant |
+| Session Token | ✅ | search, filtered search, ask-page, summarize --subscriber, assistant |
 | API Token | ✅ | search, summarize, fastgpt, enrich |
 
 ### Authentication Patterns

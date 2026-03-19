@@ -43,7 +43,7 @@ The demo scripts build the local debug binary, expose it as `kagi` through `/tmp
 
 The current demo commands are:
 
-- `kagi search --format pretty "obsidian cli daily notes workflow"`
+- `kagi search --format pretty --region us --time year --order recency "rust release notes"`
 - `kagi summarize --subscriber --url https://mullvad.net/en/browser | jq -M ...`
 - `kagi news --category tech --limit 1 | jq -M ...`
 - `kagi ask-page https://rust-lang.org/ "What is this page about in one sentence?" | jq -M ...`
