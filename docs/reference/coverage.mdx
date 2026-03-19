@@ -30,6 +30,7 @@ These features use the subscriber web product (Session Token):
 | Base Search | `kagi search` | ✅ Implemented (session path) |
 | Lens Search | `kagi search --lens` | ✅ Implemented |
 | Web Summarizer | `kagi summarize --subscriber` | ✅ Implemented |
+| Ask Questions About a Page | `kagi ask-page` | ✅ Implemented |
 | Assistant | `kagi assistant` | ✅ Implemented |
 
 ### Public Product Endpoints
@@ -55,6 +56,7 @@ These require no authentication:
 | `summarize` | Public API summarizer | API | ✅ |
 | `summarize --subscriber` | Web summarizer | Session | ✅ |
 | `news` | News feed | None | ✅ |
+| `ask-page` | Page-focused Assistant question | Session | ✅ |
 | `assistant` | AI assistant | Session | ✅ |
 | `fastgpt` | Fast answers | API | ✅ |
 | `enrich web` | Web enrichment | API | ✅ |
@@ -80,6 +82,7 @@ These require no authentication:
 | `--cache` | summarize (API), fastgpt | ✅ |
 | `--web-search` | fastgpt | ✅ |
 | `--target-language` | summarize | ✅ |
+| `<URL> <QUESTION>` | ask-page | ✅ |
 | `--thread-id` | assistant | ✅ |
 
 ## Not Available
@@ -120,7 +123,7 @@ These features were evaluated and left out of the public CLI surface:
 
 | Type | Support | Commands |
 |------|---------|----------|
-| Session Token | ✅ | search, summarize --subscriber, assistant |
+| Session Token | ✅ | search, ask-page, summarize --subscriber, assistant |
 | API Token | ✅ | search, summarize, fastgpt, enrich |
 
 ### Authentication Patterns
@@ -145,6 +148,7 @@ All commands output JSON:
 | news | Stable |
 | smallweb | Stable |
 | summarize | Stable |
+| ask-page | Stable |
 | assistant | Stable |
 | fastgpt | Stable |
 | enrich | Stable |
@@ -191,6 +195,7 @@ All commands output JSON:
 |---------|-----|-----|
 | Search | ✅ | ✅ |
 | Lens Search | ✅ | ✅ |
+| Ask Questions about Page | ✅ | ✅ |
 | Assistant | ✅ (basic) | ✅ (full) |
 | Summarizer | ✅ | ✅ |
 | Translate | ❌ | ✅ |

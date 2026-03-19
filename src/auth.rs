@@ -183,11 +183,14 @@ pub fn load_credential_inventory() -> Result<CredentialInventory, KagiError> {
         source: CredentialSource::Env,
         value,
     });
-    let env_session = read_env_credential(SESSION_TOKEN_ENV).map(|value| Credential {
-        kind: CredentialKind::SessionToken,
-        source: CredentialSource::Env,
-        value,
-    });
+    let env_session = read_env_credential(SESSION_TOKEN_ENV)
+        .map(|value| normalize_session_token_input(&value))
+        .transpose()?
+        .map(|value| Credential {
+            kind: CredentialKind::SessionToken,
+            source: CredentialSource::Env,
+            value,
+        });
 
     let config_api = config
         .auth
@@ -205,8 +208,8 @@ pub fn load_credential_inventory() -> Result<CredentialInventory, KagiError> {
         .auth
         .as_ref()
         .and_then(|auth| auth.session_token.as_ref())
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+        .map(|value| normalize_session_token_input(value))
+        .transpose()?
         .map(|value| Credential {
             kind: CredentialKind::SessionToken,
             source: CredentialSource::Config,

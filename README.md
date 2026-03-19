@@ -15,7 +15,7 @@
 
 ---
 
-`kagi` is a terminal CLI for Kagi that gives you command-line access to search, lenses, assistant, summarization, feeds, and paid API commands. it is built for people who want one command surface for interactive use, shell workflows, and structured JSON output.
+`kagi` is a terminal CLI for Kagi that gives you command-line access to search, lenses, ask-page, assistant, summarization, feeds, and paid API commands. it is built for people who want one command surface for interactive use, shell workflows, and structured JSON output.
 
 the main setup path is your existing Kagi session-link URL. paste it into `kagi auth set --session-token` and the CLI extracts the token for you. if you also use Kagi's paid API, add `KAGI_API_TOKEN` and the public API commands are available too.
 
@@ -101,7 +101,7 @@ export KAGI_API_TOKEN='...'
 
 | credential | what it unlocks |
 | --- | --- |
-| `KAGI_SESSION_TOKEN` | base search, `search --lens`, `assistant`, `summarize --subscriber` |
+| `KAGI_SESSION_TOKEN` | base search, `search --lens`, `ask-page`, `assistant`, `summarize --subscriber` |
 | `KAGI_API_TOKEN` | public `summarize`, `fastgpt`, `enrich web`, `enrich news` |
 | none | `news`, `smallweb`, `auth status`, `--help` |
 
@@ -138,6 +138,7 @@ for the full command-to-token matrix, use the [`auth-matrix`](https://kagi.micr.
 | `kagi auth` | inspect, validate, and save credentials |
 | `kagi summarize` | use the paid public summarizer API or the subscriber summarizer with `--subscriber` |
 | `kagi news` | read Kagi News from public JSON endpoints |
+| `kagi ask-page` | ask Kagi Assistant about a specific web page |
 | `kagi assistant` | prompt Kagi Assistant with a subscriber session token |
 | `kagi fastgpt` | query FastGPT through the paid API |
 | `kagi enrich` | query Kagi's web and news enrichment indexes |
@@ -200,6 +201,12 @@ continue research with assistant:
 kagi assistant "plan a focused research session in the terminal"
 ```
 
+ask assistant about a page directly:
+
+```bash
+kagi ask-page https://rust-lang.org/ "What is this page about?"
+```
+
 use the subscriber summarizer:
 
 ```bash
@@ -227,9 +234,11 @@ kagi enrich news "browser privacy"
 
 ## what it looks like
 
-if you want a quick feel for the cli before installing it, this is the kind of output you get from the subscriber summarizer, assistant, and public news feed:
+if you want a quick feel for the cli before installing it, this is the kind of output you get from ask-page, the subscriber summarizer, assistant, and the public news feed:
 
 ![summarize demo](images/demos/summarize.gif)
+
+![ask-page demo](images/demos/ask-page.gif)
 
 ![assistant demo](images/demos/assistant.gif)
 

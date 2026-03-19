@@ -241,6 +241,12 @@ pub struct AssistantPromptRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AskPageRequest {
+    pub url: String,
+    pub question: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AssistantThread {
     pub id: String,
     pub title: String,
@@ -276,6 +282,20 @@ pub struct AssistantMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AssistantPromptResponse {
     pub meta: AssistantMeta,
+    pub thread: AssistantThread,
+    pub message: AssistantMessage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AskPageSource {
+    pub url: String,
+    pub question: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AskPageResponse {
+    pub meta: AssistantMeta,
+    pub source: AskPageSource,
     pub thread: AssistantThread,
     pub message: AssistantMessage,
 }

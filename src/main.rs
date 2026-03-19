@@ -10,8 +10,8 @@ use clap::{CommandFactory, Parser};
 use clap_complete::{generate, shells};
 
 use crate::api::{
-    execute_assistant_prompt, execute_enrich_news, execute_enrich_web, execute_fastgpt,
-    execute_news, execute_news_categories, execute_news_chaos, execute_smallweb,
+    execute_ask_page, execute_assistant_prompt, execute_enrich_news, execute_enrich_web,
+    execute_fastgpt, execute_news, execute_news_categories, execute_news_chaos, execute_smallweb,
     execute_subscriber_summarize, execute_summarize,
 };
 use crate::auth::{
@@ -21,8 +21,8 @@ use crate::auth::{
 use crate::cli::{AuthSetArgs, AuthSubcommand, Cli, Commands, CompletionShell, EnrichSubcommand};
 use crate::error::KagiError;
 use crate::types::{
-    AssistantPromptRequest, FastGptRequest, SearchResponse, SubscriberSummarizeRequest,
-    SummarizeRequest,
+    AskPageRequest, AssistantPromptRequest, FastGptRequest, SearchResponse,
+    SubscriberSummarizeRequest, SummarizeRequest,
 };
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -137,6 +137,15 @@ async fn run() -> Result<(), KagiError> {
                 thread_id: args.thread_id,
             };
             let response = execute_assistant_prompt(&request, &token).await?;
+            print_json(&response)
+        }
+        Commands::AskPage(args) => {
+            let token = resolve_session_token()?;
+            let request = AskPageRequest {
+                url: args.url,
+                question: args.question,
+            };
+            let response = execute_ask_page(&request, &token).await?;
             print_json(&response)
         }
         Commands::Fastgpt(args) => {

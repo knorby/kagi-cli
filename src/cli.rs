@@ -81,6 +81,8 @@ pub enum Commands {
     News(NewsArgs),
     /// Prompt Kagi Assistant with subscriber session-token auth
     Assistant(AssistantArgs),
+    /// Ask Kagi Assistant about a specific web page
+    AskPage(AskPageArgs),
     /// Answer a query with Kagi's FastGPT API
     Fastgpt(FastGptArgs),
     /// Query Kagi's enrichment indexes
@@ -272,6 +274,17 @@ pub struct AssistantArgs {
     /// Continue an existing assistant thread by id
     #[arg(long, value_name = "THREAD_ID")]
     pub thread_id: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct AskPageArgs {
+    /// Absolute page URL to discuss with Assistant
+    #[arg(value_name = "URL")]
+    pub url: String,
+
+    /// Question to ask about the page
+    #[arg(value_name = "QUESTION")]
+    pub question: String,
 }
 
 #[derive(Debug, Args)]
