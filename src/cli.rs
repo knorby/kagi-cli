@@ -43,6 +43,29 @@ impl std::fmt::Display for OutputFormat {
 }
 
 #[derive(Debug, Clone, ValueEnum)]
+pub enum QuickOutputFormat {
+    /// JSON output (default) - structured data for scripts and APIs
+    Json,
+    /// Pretty formatted output with colors - human-readable terminal display
+    Pretty,
+    /// Compact JSON output - minified JSON for reduced size
+    Compact,
+    /// Markdown formatted output - optimized for documentation and notes
+    Markdown,
+}
+
+impl std::fmt::Display for QuickOutputFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QuickOutputFormat::Json => write!(f, "json"),
+            QuickOutputFormat::Pretty => write!(f, "pretty"),
+            QuickOutputFormat::Compact => write!(f, "compact"),
+            QuickOutputFormat::Markdown => write!(f, "markdown"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, ValueEnum)]
 pub enum SearchOrder {
     Default,
     Recency,
@@ -104,8 +127,12 @@ pub enum Commands {
     News(NewsArgs),
     /// Prompt Kagi Assistant and manage Assistant threads
     Assistant(AssistantArgs),
+    /// Generate a Kagi Quick Answer from live search results
+    Quick(QuickArgs),
     /// Ask Kagi Assistant about a specific web page
     AskPage(AskPageArgs),
+    /// Translate text through Kagi Translate using session-token auth
+    Translate(Box<TranslateArgs>),
     /// Answer a query with Kagi's FastGPT API
     Fastgpt(FastGptArgs),
     /// Query Kagi's enrichment indexes
@@ -443,6 +470,120 @@ pub struct AskPageArgs {
     /// Question to ask about the page
     #[arg(value_name = "QUESTION")]
     pub question: String,
+}
+
+#[derive(Debug, Args)]
+pub struct TranslateArgs {
+    /// Text to translate
+    #[arg(value_name = "TEXT")]
+    pub text: String,
+
+    /// Source language code (default: auto)
+    #[arg(long, value_name = "LANG", default_value = "auto")]
+    pub from: String,
+
+    /// Target language code (default: en)
+    #[arg(long, value_name = "LANG", default_value = "en")]
+    pub to: String,
+
+    /// Translation quality preference
+    #[arg(long, value_name = "QUALITY")]
+    pub quality: Option<String>,
+
+    /// Translation model override
+    #[arg(long, value_name = "MODEL")]
+    pub model: Option<String>,
+
+    /// Prediction text to bias the translation
+    #[arg(long, value_name = "TEXT")]
+    pub prediction: Option<String>,
+
+    /// Predicted source language code
+    #[arg(long, value_name = "LANG")]
+    pub predicted_language: Option<String>,
+
+    /// Formality setting
+    #[arg(long, value_name = "LEVEL")]
+    pub formality: Option<String>,
+
+    /// Speaker gender hint
+    #[arg(long, value_name = "GENDER")]
+    pub speaker_gender: Option<String>,
+
+    /// Addressee gender hint
+    #[arg(long, value_name = "GENDER")]
+    pub addressee_gender: Option<String>,
+
+    /// Language complexity setting
+    #[arg(long, value_name = "LEVEL")]
+    pub language_complexity: Option<String>,
+
+    /// Translation style setting
+    #[arg(long, value_name = "STYLE")]
+    pub translation_style: Option<String>,
+
+    /// Extra translation context
+    #[arg(long, value_name = "TEXT")]
+    pub context: Option<String>,
+
+    /// Dictionary language override
+    #[arg(long, value_name = "LANG")]
+    pub dictionary_language: Option<String>,
+
+    /// Time formatting style
+    #[arg(long, value_name = "FORMAT")]
+    pub time_format: Option<String>,
+
+    /// Toggle definition-aware translation behavior
+    #[arg(long)]
+    pub use_definition_context: Option<bool>,
+
+    /// Toggle language-feature enrichment
+    #[arg(long)]
+    pub enable_language_features: Option<bool>,
+
+    /// Preserve source formatting when possible
+    #[arg(long)]
+    pub preserve_formatting: Option<bool>,
+
+    /// Raw JSON array passed through as context_memory
+    #[arg(long, value_name = "JSON")]
+    pub context_memory_json: Option<String>,
+
+    /// Skip the alternative translations call
+    #[arg(long)]
+    pub no_alternatives: bool,
+
+    /// Skip the word insights call
+    #[arg(long)]
+    pub no_word_insights: bool,
+
+    /// Skip the translation suggestions call
+    #[arg(long)]
+    pub no_suggestions: bool,
+
+    /// Skip the text alignments call
+    #[arg(long)]
+    pub no_alignments: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct QuickArgs {
+    /// Query to answer with Kagi Quick Answer
+    #[arg(value_name = "QUERY")]
+    pub query: String,
+
+    /// Output format
+    #[arg(long, value_name = "FORMAT", default_value_t = QuickOutputFormat::Json)]
+    pub format: QuickOutputFormat,
+
+    /// Disable colored terminal output (only affects pretty format)
+    #[arg(long)]
+    pub no_color: bool,
+
+    /// Scope quick answer to a Kagi lens by numeric index
+    #[arg(long, value_name = "INDEX")]
+    pub lens: Option<String>,
 }
 
 #[derive(Debug, Args)]

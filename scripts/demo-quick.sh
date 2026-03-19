@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-#!/usr/bin/env bash
-
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -15,7 +13,7 @@ export PATH="/tmp/kagi-demo-bin:$PATH"
 
 printf '\033c'
 sleep 1.2
-printf '$ kagi search --format pretty --region us --time year --order recency "rust release notes"\n'
+printf '$ kagi quick --format pretty "what is rust"\n'
 sleep 0.4
-kagi search --format pretty --region us --time year --order recency "rust release notes" | sed -n '1,12p'
+kagi quick --format pretty "what is rust" | sed -n '1,18p'
 sleep 2

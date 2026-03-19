@@ -174,8 +174,14 @@ kagi search --region us --time month --order recency "rust release notes"
 ![Search command demo](/images/demos/search.gif)
 
 ```bash
+# Test Quick Answer
+kagi quick --format pretty "what is rust"
+
 # Test Assistant
 kagi assistant "What are the key features of Rust?"
+
+# Test Translate
+kagi translate "Bonjour tout le monde" --to ja
 
 # Ask Assistant about a page
 kagi ask-page https://rust-lang.org/ "What is this page about?"
@@ -187,6 +193,10 @@ kagi assistant thread list
 kagi summarize --subscriber --url https://www.rust-lang.org --summary-type keypoints --length digest
 ```
 
+**Quick Answer Demo:**
+
+![Quick command demo](/images/demos/quick.gif)
+
 **Assistant Demo:**
 
 ![Assistant command demo](/images/demos/assistant.gif)
@@ -194,6 +204,10 @@ kagi summarize --subscriber --url https://www.rust-lang.org --summary-type keypo
 **Ask Page Demo:**
 
 ![Ask Page command demo](/images/demos/ask-page.gif)
+
+**Translate Demo:**
+
+![Translate command demo](/images/demos/translate.gif)
 
 **Subscriber Summarize Demo:**
 
@@ -433,6 +447,7 @@ kagi search --lens 2 --format pretty "query"    # Combined
 ```bash
 kagi summarize --url https://example.com                    # Public API
 kagi summarize --subscriber --url https://example.com       # Subscriber
+kagi quick "what is rust"                                   # Quick Answer
 kagi fastgpt "question"                                     # Quick answer
 kagi assistant "prompt"                                     # AI assistant
 kagi enrich web "query"                                     # Web enrichment

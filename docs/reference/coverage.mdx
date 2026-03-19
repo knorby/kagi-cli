@@ -29,10 +29,12 @@ These features use the subscriber web product (Session Token):
 |---------|---------|--------|
 | Base Search | `kagi search` | ✅ Implemented (session path) |
 | Lens Search | `kagi search --lens` | ✅ Implemented |
+| Quick Answer | `kagi quick` | ✅ Implemented |
 | Filtered Search | `kagi search --region/--time/...` | ✅ Implemented |
 | Web Summarizer | `kagi summarize --subscriber` | ✅ Implemented |
 | Assistant prompt + thread management | `kagi assistant` | ✅ Implemented |
 | Ask Questions About a Page | `kagi ask-page` | ✅ Implemented |
+| Translate (text mode) | `kagi translate` | ✅ Implemented |
 
 ### Public Product Endpoints
 
@@ -58,8 +60,10 @@ These require no authentication:
 | `summarize` | Public API summarizer | API | ✅ |
 | `summarize --subscriber` | Web summarizer | Session | ✅ |
 | `news` | News feed | None | ✅ |
+| `quick` | Quick Answer | Session | ✅ |
 | `assistant` | AI assistant with thread management | Session | ✅ |
 | `ask-page` | Page-focused Assistant question | Session | ✅ |
+| `translate` | Kagi Translate text mode | Session | ✅ |
 | `fastgpt` | Fast answers | API | ✅ |
 | `enrich web` | Web enrichment | API | ✅ |
 | `enrich news` | News enrichment | API | ✅ |
@@ -69,8 +73,8 @@ These require no authentication:
 
 | Option | Commands | Status |
 |--------|----------|--------|
-| `--format pretty` | search | ✅ |
-| `--lens` | search | ✅ |
+| `--format pretty` | search, batch, quick | ✅ |
+| `--lens` | search, batch, quick | ✅ |
 | `--region` | search, batch | ✅ |
 | `--time` | search, batch | ✅ |
 | `--from-date` | search, batch | ✅ |
@@ -93,11 +97,19 @@ These require no authentication:
 | `--target-language` | summarize | ✅ |
 | `<URL> <QUESTION>` | ask-page | ✅ |
 | `--thread-id` | assistant | ✅ |
+| `--from`, `--to` | translate | ✅ |
+| `--no-alternatives`, `--no-word-insights`, `--no-suggestions`, `--no-alignments` | translate | ✅ |
 | `--model` | assistant | ✅ |
 | `--lens` | assistant | ✅ |
 | `--web-access` / `--no-web-access` | assistant | ✅ |
 | `--personalized` / `--no-personalized` | assistant | ✅ |
 | `thread list/get/delete/export` | assistant | ✅ |
+| `--model` | assistant | ✅ |
+| `--lens` | assistant | ✅ |
+| `--web-access` / `--no-web-access` | assistant | ✅ |
+| `--personalized` / `--no-personalized` | assistant | ✅ |
+| `thread list/get/delete/export` | assistant | ✅ |
+| `--no-color` | search, batch, quick | ✅ |
 
 ## Not Available
 
@@ -105,15 +117,7 @@ These require no authentication:
 
 These features were evaluated and left out of the public CLI surface:
 
-#### Translate
-
-**Status:** ❌ Not implemented
-
-**Reason:** The current Session Link implementation is not sufficient for `translate.kagi.com` as deployed. The endpoint requires additional authentication mechanisms that are incompatible with the Session Link token model.
-
-**Decision:** Rather than ship a fragile compatibility layer that might break, the feature is excluded until there is a viable authentication path.
-
-**Alternative:** Use the web interface at [translate.kagi.com](https://translate.kagi.com)
+There is no public CLI support today for document, website, image, proofread, dictionary, or voice modes from Kagi Translate. The implemented scope is text mode only.
 
 ## API Surface Philosophy
 
@@ -137,7 +141,7 @@ These features were evaluated and left out of the public CLI surface:
 
 | Type | Support | Commands |
 |------|---------|----------|
-| Session Token | ✅ | search, filtered search, ask-page, summarize --subscriber, assistant |
+| Session Token | ✅ | search, filtered search, quick, ask-page, summarize --subscriber, assistant, translate |
 | API Token | ✅ | search, summarize, fastgpt, enrich |
 
 ### Authentication Patterns
@@ -159,11 +163,14 @@ All commands output JSON:
 | Command | Schema Stability |
 |---------|-----------------|
 | search | Stable |
+| batch | Stable |
+| quick | Stable |
 | news | Stable |
 | smallweb | Stable |
 | summarize | Stable |
 | ask-page | Stable |
 | assistant | Stable |
+| translate | Stable |
 | fastgpt | Stable |
 | enrich | Stable |
 
@@ -172,6 +179,8 @@ All commands output JSON:
 | Command | Pretty Mode |
 |---------|------------|
 | search | ✅ Yes |
+| batch | ✅ Yes |
+| quick | ✅ Yes |
 | news | ❌ No (use jq) |
 | smallweb | ❌ No (use jq) |
 | Others | ❌ JSON only |
@@ -209,10 +218,12 @@ All commands output JSON:
 |---------|-----|-----|
 | Search | ✅ | ✅ |
 | Lens Search | ✅ | ✅ |
+| Quick Answer | ✅ | ✅ |
+| Quick Answer | ✅ | ✅ |
 | Assistant | ✅ (prompt + threads) | ✅ (full) |
 | Ask Questions about Page | ✅ | ✅ |
 | Summarizer | ✅ | ✅ |
-| Translate | ❌ | ✅ |
+| Translate | ✅ (text mode) | ✅ |
 | Settings | ❌ | ✅ |
 | Billing | ❌ | ✅ |
 
