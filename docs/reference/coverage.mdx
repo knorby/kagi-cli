@@ -29,6 +29,7 @@ These features use the subscriber web product (Session Token):
 |---------|---------|--------|
 | Base Search | `kagi search` | ✅ Implemented (session path) |
 | Lens Search | `kagi search --lens` | ✅ Implemented |
+| Quick Answer | `kagi quick` | ✅ Implemented |
 | Filtered Search | `kagi search --region/--time/...` | ✅ Implemented |
 | Web Summarizer | `kagi summarize --subscriber` | ✅ Implemented |
 | Assistant prompt + thread management | `kagi assistant` | ✅ Implemented |
@@ -59,6 +60,7 @@ These require no authentication:
 | `summarize` | Public API summarizer | API | ✅ |
 | `summarize --subscriber` | Web summarizer | Session | ✅ |
 | `news` | News feed | None | ✅ |
+| `quick` | Quick Answer | Session | ✅ |
 | `assistant` | AI assistant with thread management | Session | ✅ |
 | `ask-page` | Page-focused Assistant question | Session | ✅ |
 | `translate` | Kagi Translate text mode | Session | ✅ |
@@ -71,8 +73,8 @@ These require no authentication:
 
 | Option | Commands | Status |
 |--------|----------|--------|
-| `--format pretty` | search | ✅ |
-| `--lens` | search | ✅ |
+| `--format pretty` | search, batch, quick | ✅ |
+| `--lens` | search, batch, quick | ✅ |
 | `--region` | search, batch | ✅ |
 | `--time` | search, batch | ✅ |
 | `--from-date` | search, batch | ✅ |
@@ -107,6 +109,7 @@ These require no authentication:
 | `--web-access` / `--no-web-access` | assistant | ✅ |
 | `--personalized` / `--no-personalized` | assistant | ✅ |
 | `thread list/get/delete/export` | assistant | ✅ |
+| `--no-color` | search, batch, quick | ✅ |
 
 ## Not Available
 
@@ -138,7 +141,7 @@ There is no public CLI support today for document, website, image, proofread, di
 
 | Type | Support | Commands |
 |------|---------|----------|
-| Session Token | ✅ | search, filtered search, ask-page, summarize --subscriber, assistant, translate |
+| Session Token | ✅ | search, filtered search, quick, ask-page, summarize --subscriber, assistant, translate |
 | API Token | ✅ | search, summarize, fastgpt, enrich |
 
 ### Authentication Patterns
@@ -160,6 +163,8 @@ All commands output JSON:
 | Command | Schema Stability |
 |---------|-----------------|
 | search | Stable |
+| batch | Stable |
+| quick | Stable |
 | news | Stable |
 | smallweb | Stable |
 | summarize | Stable |
@@ -174,6 +179,8 @@ All commands output JSON:
 | Command | Pretty Mode |
 |---------|------------|
 | search | ✅ Yes |
+| batch | ✅ Yes |
+| quick | ✅ Yes |
 | news | ❌ No (use jq) |
 | smallweb | ❌ No (use jq) |
 | Others | ❌ JSON only |
@@ -211,6 +218,8 @@ All commands output JSON:
 |---------|-----|-----|
 | Search | ✅ | ✅ |
 | Lens Search | ✅ | ✅ |
+| Quick Answer | ✅ | ✅ |
+| Quick Answer | ✅ | ✅ |
 | Assistant | ✅ (prompt + threads) | ✅ (full) |
 | Ask Questions about Page | ✅ | ✅ |
 | Summarizer | ✅ | ✅ |

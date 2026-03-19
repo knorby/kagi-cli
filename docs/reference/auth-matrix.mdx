@@ -20,6 +20,7 @@ This reference provides a complete mapping of which commands require which authe
 | `summarize` | `KAGI_API_TOKEN` | None | Paid public API |
 | `summarize --subscriber` | `KAGI_SESSION_TOKEN` | None | Subscriber web product |
 | `news` | None | None | Public endpoint |
+| `quick` | `KAGI_SESSION_TOKEN` | None | Quick Answer web product |
 | `ask-page` | `KAGI_SESSION_TOKEN` | None | Subscriber feature |
 | `assistant` | `KAGI_SESSION_TOKEN` | None | Subscriber feature |
 | `translate` | `KAGI_SESSION_TOKEN` | None | Text mode only; bootstraps `translate_session` over HTTP |
@@ -127,6 +128,7 @@ flowchart TD
 
 | Command | Token | Purpose |
 |---------|-------|---------|
+| `quick` | `KAGI_SESSION_TOKEN` | Quick answers with references |
 | `ask-page` | `KAGI_SESSION_TOKEN` | Ask Assistant about one page URL |
 | `assistant` | `KAGI_SESSION_TOKEN` | Conversational AI with threads |
 | `translate` | `KAGI_SESSION_TOKEN` | Kagi Translate text mode |
@@ -157,6 +159,7 @@ Both `enrich web` and `enrich news` require `KAGI_API_TOKEN`:
 Requires `KAGI_SESSION_TOKEN`:
 
 - ✅ Lens-aware search (`--lens`)
+- ✅ Quick Answer (`quick`)
 - ✅ Filtered search (`--region`, `--time`, `--from-date`, `--to-date`, `--order`, `--verbatim`, personalization flags)
 - ✅ Kagi Assistant prompt and thread commands (`assistant`)
 - ✅ Ask Page (`ask-page`)
@@ -236,9 +239,10 @@ kagi auth set --session-token 'https://kagi.com/search?token=...'
 **Working commands:**
 - ✅ `kagi search "query"` (uses session path)
 - ✅ `kagi search --lens 2 "query"`
+- ✅ `kagi quick "what is rust"`
 - ✅ `kagi search --region us --time month "query"`
 - ✅ `kagi ask-page https://example.com "question"`
-- ✅ `kagi ask-page https://example.com "question"`
+- ✅ `kagi quick "what is rust"`
 - ✅ `kagi assistant "prompt"`
 - ✅ `kagi translate "Bonjour tout le monde"`
 - ✅ `kagi summarize --subscriber --url ...`
@@ -267,9 +271,10 @@ kagi auth set --api-token 'your_api_token'
 
 **Non-working:**
 - ❌ `kagi search --lens 2` - requires session token
+- ❌ `kagi quick` - requires session token
 - ❌ `kagi search --region us "query"` - requires session token
 - ❌ `kagi ask-page https://example.com "question"` - requires session token
-- ❌ `kagi ask-page https://example.com "question"` - requires session token
+- ❌ `kagi quick` - requires session token
 - ❌ `kagi assistant` - requires session token
 - ❌ `kagi summarize --subscriber` - requires session token
 
@@ -287,7 +292,9 @@ kagi auth set --session-token '...' --api-token '...'
 - `search`: Uses API (preferred), falls back to session if needed
 - `summarize` without `--subscriber`: Uses API
 - `summarize --subscriber`: Uses session
+- `quick`: Uses session
 - `ask-page`: Uses session
+- `quick`: Uses session
 - `assistant`: Uses session
 - `fastgpt`: Uses API
 
