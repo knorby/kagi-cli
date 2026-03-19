@@ -7,6 +7,18 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 ## [Unreleased]
 
+## [0.3.1]
+
+### Added
+
+- Interactive `kagi auth` wizard for TTY setup with guided Session Link and API Token flows
+- Recorded auth demo assets and auth-wizard onboarding coverage across the docs
+
+### Changed
+
+- Made `kagi auth` the primary local setup path while keeping `auth status`, `auth check`, and `auth set` for explicit non-interactive use
+- Tightened auth copy, terminal presentation, and config-save flow with overwrite prompts, preferred-auth prompts, and environment override notices
+
 ## [0.3.0]
 
 ### Added
