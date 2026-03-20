@@ -1,8 +1,3 @@
----
-title: "TODO"
-description: "Ranked backlog for *kagi* based on the current repo surface and a full help.kagi.com review."
----
-
 # TODO
 
 This backlog is based on:
