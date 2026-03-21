@@ -323,6 +323,10 @@ for the fuller install matrix and platform-specific setup, use the [installation
 - [authentication guide](https://kagi.micr.dev/guides/authentication)
 - [workflows](https://kagi.micr.dev/guides/workflows)
 
+## disclaimer
+
+this project is unofficial and not affiliated with, endorsed by, or connected to Kagi Inc. it is an independent, community-built tool.
+
 ## license
 
 [mit license](LICENSE)
