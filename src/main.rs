@@ -3,6 +3,7 @@ mod auth;
 mod auth_wizard;
 mod cli;
 mod error;
+mod http;
 mod parser;
 mod quick;
 mod search;
