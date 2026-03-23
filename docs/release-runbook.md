@@ -4,7 +4,7 @@ Use this when cutting a new `kagi` release.
 
 ## Goal
 
-Ship one version across the Rust CLI, GitHub release assets, npm wrapper, Homebrew tap, Scoop bucket, and public docs.
+Ship one version across the Rust CLI, GitHub release assets, npm wrapper, Homebrew tap, Scoop bucket, the `kagi-cli` AUR package, and public docs.
 
 ## Preflight
 
@@ -90,7 +90,13 @@ Verify all public release surfaces after the workflows finish:
 5. Scoop
    - confirm `Microck/scoop-kagi` was updated to the new version and hash
    - if the sync step was skipped or failed, update that repo manually and push `bucket/kagi.json`
-6. Installers and scripts
+6. AUR
+   - update `ssh://aur@aur.archlinux.org/kagi-cli.git`
+   - bump `pkgver` in `PKGBUILD`
+   - refresh `sha256sums` for `https://github.com/Microck/kagi-cli/archive/refs/tags/vX.Y.Z.tar.gz`
+   - regenerate `.SRCINFO`
+   - push the AUR repo and confirm the package page shows `X.Y.Z`
+7. Installers and scripts
    - `scripts/install.sh` and `scripts/install.ps1` resolve the latest GitHub release dynamically, so they need no per-release version bump
    - the npm wrapper downloads assets using `npm/package.json` version, so npm must stay in lockstep with the GitHub tag
 
@@ -114,14 +120,14 @@ The authoritative manifest lives in the companion bucket repo `Microck/scoop-kag
 
 ### AUR
 
-There is no AUR automation in this repo and no AUR package metadata tracked here. If an external AUR package exists, update it manually after the GitHub release:
+There is no AUR automation in this repo and no AUR package metadata tracked here. The maintained package is `kagi-cli` at `ssh://aur@aur.archlinux.org/kagi-cli.git`. Update it manually after the GitHub release:
 
-1. bump `pkgver`
-2. refresh checksums and any source URLs
-3. publish the PKGBUILD update
-4. verify a fresh `paru` or `yay` install resolves the new version
-
-If no AUR package is maintained, skip this section.
+1. clone or update `ssh://aur@aur.archlinux.org/kagi-cli.git`
+2. bump `pkgver` in `PKGBUILD`
+3. refresh `sha256sums` for `https://github.com/Microck/kagi-cli/archive/refs/tags/vX.Y.Z.tar.gz`
+4. regenerate `.SRCINFO`
+5. commit and push the AUR repo
+6. verify the package page or a fresh `paru` or `yay` install resolves the new version
 
 ### Cargo
 
