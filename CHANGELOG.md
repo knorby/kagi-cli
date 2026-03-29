@@ -7,6 +7,20 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 ## [Unreleased]
 
+## [0.4.0]
+
+### Added
+
+- Account-level settings commands for custom assistants, lenses, custom bangs, and redirect rules
+- `kagi search --snap` for snap-prefixed search flows
+- `kagi assistant --assistant` for selecting a saved assistant by name, id, or invoke-profile slug
+- Assistant prompt output formats for `json`, `pretty`, `compact`, and `markdown`
+
+### Changed
+
+- Expanded the docs, auth matrix, output contract, and command reference set to cover the new settings and assistant/search parity features
+- Added live CRUD and round-trip coverage for custom assistants, lenses, custom bangs, redirects, and Assistant thread flows
+
 ## [0.3.3]
 
 ### Added
