@@ -202,13 +202,17 @@ pub fn parse_assistant_profile_form(html: &str) -> Result<AssistantProfileDetail
     let profile_id = extract_input_value(&document, "profile_id");
     let name = extract_input_value(&document, "name")
         .ok_or_else(|| KagiError::Parse("assistant form missing name".to_string()))?;
-    let bang_trigger = extract_input_value(&document, "bang_trigger").filter(|value| !value.is_empty());
+    let bang_trigger =
+        extract_input_value(&document, "bang_trigger").filter(|value| !value.is_empty());
     let selected_lens = extract_checked_radio_value(&document, "selected_lens")
         .ok_or_else(|| KagiError::Parse("assistant form missing selected lens".to_string()))?;
     let base_model = extract_checked_radio_value(&document, "base_model").unwrap_or_default();
-    let custom_instructions = extract_textarea_value(&document, "custom_instructions").unwrap_or_default();
+    let custom_instructions =
+        extract_textarea_value(&document, "custom_instructions").unwrap_or_default();
     let delete_supported = document
-        .select(&selector(r#"form[action="/settings/ast/profiles/delete"]"#)?)
+        .select(&selector(
+            r#"form[action="/settings/ast/profiles/delete"]"#,
+        )?)
         .next()
         .is_some();
 
@@ -247,12 +251,7 @@ pub fn parse_lens_list(html: &str) -> Result<Vec<LensSummary>, KagiError> {
                 index,
             )
         } else if let Some(index) = next_index {
-            (
-                false,
-                None,
-                "next_index".to_string(),
-                index,
-            )
+            (false, None, "next_index".to_string(), index)
         } else {
             return Err(KagiError::Parse(format!(
                 "lens '{id}' missing toggle index payload"

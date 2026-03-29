@@ -33,15 +33,14 @@ use crate::types::{
     FastGptResponse, LensCreateRequest, LensDetails, LensSummary, LensUpdateRequest,
     NewsBatchCategories, NewsBatchCategory, NewsCategoriesResponse, NewsCategoryMetadata,
     NewsCategoryMetadataList, NewsChaos, NewsChaosResponse, NewsContentFilterSummary,
-    NewsFilterPresetListEntry, NewsFilterPresetListResponse, NewsLatestBatch,
-    NewsResolvedCategory, NewsStoriesPayload, NewsStoriesResponse,
-    NewsStoryContentFilterSummary, RedirectRuleCreateRequest, RedirectRuleDetails,
-    RedirectRuleSummary, RedirectRuleUpdateRequest, SmallWebFeed, SubscriberSummarization,
-    SubscriberSummarizeMeta, SubscriberSummarizeRequest, SubscriberSummarizeResponse,
-    SummarizeRequest, SummarizeResponse, TextAlignmentsResponse, ToggleResourceResponse,
-    TranslateBootstrapMetadata, TranslateCommandRequest, TranslateDetectedLanguage,
-    TranslateOptionState, TranslateResponse, TranslateTextResponse, TranslateWarning,
-    TranslationSuggestionsResponse, WordInsightsResponse,
+    NewsFilterPresetListEntry, NewsFilterPresetListResponse, NewsLatestBatch, NewsResolvedCategory,
+    NewsStoriesPayload, NewsStoriesResponse, NewsStoryContentFilterSummary,
+    RedirectRuleCreateRequest, RedirectRuleDetails, RedirectRuleSummary, RedirectRuleUpdateRequest,
+    SmallWebFeed, SubscriberSummarization, SubscriberSummarizeMeta, SubscriberSummarizeRequest,
+    SubscriberSummarizeResponse, SummarizeRequest, SummarizeResponse, TextAlignmentsResponse,
+    ToggleResourceResponse, TranslateBootstrapMetadata, TranslateCommandRequest,
+    TranslateDetectedLanguage, TranslateOptionState, TranslateResponse, TranslateTextResponse,
+    TranslateWarning, TranslationSuggestionsResponse, WordInsightsResponse,
 };
 
 const KAGI_SUMMARIZE_URL: &str = "https://kagi.com/api/v0/summarize";
@@ -758,7 +757,11 @@ pub async fn execute_lens_set_enabled(
             (lens.toggle_field.clone(), lens.toggle_value.clone()),
         ],
         token,
-        if enabled { "lens enable" } else { "lens disable" },
+        if enabled {
+            "lens enable"
+        } else {
+            "lens disable"
+        },
     )
     .await?;
 
@@ -771,9 +774,8 @@ pub async fn execute_lens_set_enabled(
 }
 
 pub async fn execute_custom_bang_list(token: &str) -> Result<Vec<CustomBangSummary>, KagiError> {
-    let html =
-        fetch_authenticated_html(KAGI_SETTINGS_CUSTOM_BANGS_URL, token, "custom bangs page")
-            .await?;
+    let html = fetch_authenticated_html(KAGI_SETTINGS_CUSTOM_BANGS_URL, token, "custom bangs page")
+        .await?;
     parse_custom_bang_list(&html)
 }
 
@@ -797,8 +799,12 @@ pub async fn execute_custom_bang_create(
     token: &str,
 ) -> Result<CustomBangDetails, KagiError> {
     let mut details = parse_custom_bang_form(
-        &fetch_authenticated_html(KAGI_SETTINGS_CUSTOM_BANG_FORM_URL, token, "new custom bang form")
-            .await?,
+        &fetch_authenticated_html(
+            KAGI_SETTINGS_CUSTOM_BANG_FORM_URL,
+            token,
+            "new custom bang form",
+        )
+        .await?,
     )?;
     apply_custom_bang_create_request(&mut details, request)?;
 
@@ -2008,14 +2014,7 @@ fn build_lens_form(details: &LensDetails) -> Vec<(String, String)> {
         ),
         ("description".to_string(), details.description.clone()),
         ("search_region".to_string(), details.search_region.clone()),
-        (
-            "date_range".to_string(),
-            if details.before_time.is_some() || details.after_time.is_some() {
-                "0".to_string()
-            } else {
-                "0".to_string()
-            },
-        ),
+        ("date_range".to_string(), "0".to_string()),
         (
             "before_time".to_string(),
             details.before_time.clone().unwrap_or_default(),
@@ -2068,10 +2067,7 @@ fn build_lens_form(details: &LensDetails) -> Vec<(String, String)> {
     form
 }
 
-fn build_custom_bang_form(
-    details: &CustomBangDetails,
-    delete: bool,
-) -> Vec<(String, String)> {
+fn build_custom_bang_form(details: &CustomBangDetails, delete: bool) -> Vec<(String, String)> {
     let mut form = Vec::new();
     if let Some(id) = details.bang_id.as_ref() {
         form.push(("bang_id".to_string(), id.clone()));
@@ -2342,7 +2338,10 @@ fn resolve_custom_assistant_ref<'a>(
     Ok(assistant)
 }
 
-fn resolve_lens_ref<'a>(lenses: &'a [LensSummary], target: &str) -> Result<&'a LensSummary, KagiError> {
+fn resolve_lens_ref<'a>(
+    lenses: &'a [LensSummary],
+    target: &str,
+) -> Result<&'a LensSummary, KagiError> {
     let target = normalize_named_target(target, "lens target")?;
     lenses
         .iter()
@@ -3612,15 +3611,17 @@ mod tests {
         normalize_subscriber_summary_type, parse_assistant_prompt_stream,
         parse_assistant_thread_delete_stream, parse_assistant_thread_list_stream,
         parse_assistant_thread_open_stream, parse_content_disposition_filename,
-        parse_subscriber_summarize_stream, parse_translate_detect_value, resolve_custom_bang_ref,
-        resolve_custom_assistant_ref, resolve_lens_ref, resolve_news_category,
-        resolve_redirect_ref, resolve_translate_bootstrap, should_retry_translate_bootstrap,
-        text_contains_news_filter_keyword, validate_translate_request,
+        parse_subscriber_summarize_stream, parse_translate_detect_value,
+        resolve_custom_assistant_ref, resolve_custom_bang_ref, resolve_lens_ref,
+        resolve_news_category, resolve_redirect_ref, resolve_translate_bootstrap,
+        should_retry_translate_bootstrap, text_contains_news_filter_keyword,
+        validate_translate_request,
     };
     use crate::api::{
         execute_assistant_prompt, execute_assistant_thread_delete, execute_assistant_thread_export,
-        execute_assistant_thread_get, execute_assistant_thread_list, execute_custom_assistant_create,
-        execute_custom_assistant_delete, execute_custom_assistant_get, execute_custom_assistant_list,
+        execute_assistant_thread_get, execute_assistant_thread_list,
+        execute_custom_assistant_create, execute_custom_assistant_delete,
+        execute_custom_assistant_get, execute_custom_assistant_list,
         execute_custom_assistant_update, execute_custom_bang_create, execute_custom_bang_delete,
         execute_custom_bang_get, execute_custom_bang_update, execute_lens_create,
         execute_lens_delete, execute_lens_set_enabled, execute_lens_update,
@@ -4315,7 +4316,10 @@ mod tests {
         .await
         .expect("custom assistant create should succeed");
 
-        let created_id = created.profile_id.clone().expect("created assistant should have id");
+        let created_id = created
+            .profile_id
+            .clone()
+            .expect("created assistant should have id");
         assert_eq!(created.name, name);
         assert_eq!(created.bang_trigger.as_deref(), Some(bang.as_str()));
         assert!(!created.internet_access);
@@ -4489,7 +4493,10 @@ mod tests {
         .await
         .expect("custom bang create should succeed");
 
-        let bang_id = created.bang_id.clone().expect("created bang should have id");
+        let bang_id = created
+            .bang_id
+            .clone()
+            .expect("created bang should have id");
         assert_eq!(created.name, name);
         assert_eq!(created.trigger, trigger);
 
@@ -4543,14 +4550,15 @@ mod tests {
             "^https://probe-{nonce}.example.invalid|https://updated-{nonce}.example.invalid"
         );
 
-        let created = execute_redirect_create(
-            &RedirectRuleCreateRequest { rule: rule.clone() },
-            &token,
-        )
-        .await
-        .expect("redirect create should succeed");
+        let created =
+            execute_redirect_create(&RedirectRuleCreateRequest { rule: rule.clone() }, &token)
+                .await
+                .expect("redirect create should succeed");
 
-        let rule_id = created.rule_id.clone().expect("created redirect should have id");
+        let rule_id = created
+            .rule_id
+            .clone()
+            .expect("created redirect should have id");
         assert_eq!(created.rule, rule);
 
         let listed = execute_redirect_list(&token)

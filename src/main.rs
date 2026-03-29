@@ -13,19 +13,18 @@ use clap::{CommandFactory, Parser};
 use clap_complete::{generate, shells};
 
 use crate::api::{
-    NewsFilterRequest, execute_ask_page, execute_assistant_prompt,
-    execute_assistant_thread_delete, execute_assistant_thread_export,
-    execute_assistant_thread_get, execute_assistant_thread_list, execute_custom_assistant_create,
-    execute_custom_assistant_delete, execute_custom_assistant_get, execute_custom_assistant_list,
-    execute_custom_assistant_update, execute_custom_bang_create, execute_custom_bang_delete,
-    execute_custom_bang_get, execute_custom_bang_list, execute_custom_bang_update,
-    execute_enrich_news, execute_enrich_web, execute_fastgpt, execute_lens_create,
-    execute_lens_delete, execute_lens_get, execute_lens_list, execute_lens_set_enabled,
-    execute_lens_update, execute_news, execute_news_categories, execute_news_chaos,
-    execute_news_filter_presets, execute_redirect_create, execute_redirect_delete,
-    execute_redirect_get, execute_redirect_list, execute_redirect_set_enabled,
-    execute_redirect_update, execute_smallweb, execute_subscriber_summarize,
-    execute_summarize, execute_translate,
+    NewsFilterRequest, execute_ask_page, execute_assistant_prompt, execute_assistant_thread_delete,
+    execute_assistant_thread_export, execute_assistant_thread_get, execute_assistant_thread_list,
+    execute_custom_assistant_create, execute_custom_assistant_delete, execute_custom_assistant_get,
+    execute_custom_assistant_list, execute_custom_assistant_update, execute_custom_bang_create,
+    execute_custom_bang_delete, execute_custom_bang_get, execute_custom_bang_list,
+    execute_custom_bang_update, execute_enrich_news, execute_enrich_web, execute_fastgpt,
+    execute_lens_create, execute_lens_delete, execute_lens_get, execute_lens_list,
+    execute_lens_set_enabled, execute_lens_update, execute_news, execute_news_categories,
+    execute_news_chaos, execute_news_filter_presets, execute_redirect_create,
+    execute_redirect_delete, execute_redirect_get, execute_redirect_list,
+    execute_redirect_set_enabled, execute_redirect_update, execute_smallweb,
+    execute_subscriber_summarize, execute_summarize, execute_translate,
 };
 use crate::auth::{
     Credential, CredentialKind, SearchAuthRequirement, SearchCredentials, format_status,
@@ -233,8 +232,7 @@ async fn run() -> Result<(), KagiError> {
                             }
                             AssistantThreadExportFormat::Json => {
                                 let response =
-                                    execute_assistant_thread_get(&export.thread_id, &token)
-                                        .await?;
+                                    execute_assistant_thread_get(&export.thread_id, &token).await?;
                                 print_json(&response)
                             }
                         },
@@ -245,7 +243,8 @@ async fn run() -> Result<(), KagiError> {
                             print_json(&response)
                         }
                         AssistantCustomSubcommand::Get(target) => {
-                            let response = execute_custom_assistant_get(&target.target, &token).await?;
+                            let response =
+                                execute_custom_assistant_get(&target.target, &token).await?;
                             print_json(&response)
                         }
                         AssistantCustomSubcommand::Create(create) => {
@@ -578,9 +577,11 @@ async fn run() -> Result<(), KagiError> {
                     print_json(&response)
                 }
                 cli::RedirectSubcommand::Create(create) => {
-                    let response =
-                        execute_redirect_create(&RedirectRuleCreateRequest { rule: create.rule }, &token)
-                            .await?;
+                    let response = execute_redirect_create(
+                        &RedirectRuleCreateRequest { rule: create.rule },
+                        &token,
+                    )
+                    .await?;
                     print_json(&response)
                 }
                 cli::RedirectSubcommand::Update(update) => {
@@ -932,9 +933,7 @@ fn print_assistant_response(
                 .trim();
             println!(
                 "{title_color}Thread{reset_color}: {}\n{muted_color}Message{reset_color}: {}\n\n{}",
-                response.thread.id,
-                response.message.id,
-                content
+                response.thread.id, response.message.id, content
             );
             Ok(())
         }
@@ -1493,7 +1492,9 @@ mod tests {
             },
         };
 
-        assert!(print_assistant_response(&response, AssistantOutputFormat::Markdown, false).is_ok());
+        assert!(
+            print_assistant_response(&response, AssistantOutputFormat::Markdown, false).is_ok()
+        );
         assert!(print_assistant_response(&response, AssistantOutputFormat::Pretty, false).is_ok());
     }
 
