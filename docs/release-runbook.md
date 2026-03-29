@@ -129,6 +129,32 @@ There is no AUR automation in this repo and no AUR package metadata tracked here
 5. commit and push the AUR repo
 6. verify the package page or a fresh `paru` or `yay` install resolves the new version
 
+Example flow:
+
+```bash
+git clone ssh://aur@aur.archlinux.org/kagi-cli.git
+cd kagi-cli
+
+# update PKGBUILD for X.Y.Z first
+curl -L -o kagi-cli-vX.Y.Z.tar.gz \
+  https://github.com/Microck/kagi-cli/archive/refs/tags/vX.Y.Z.tar.gz
+sha256sum kagi-cli-vX.Y.Z.tar.gz
+
+# write the new checksum into PKGBUILD, then regenerate metadata
+makepkg --printsrcinfo > .SRCINFO
+
+git status
+git diff
+git add PKGBUILD .SRCINFO
+git commit -m "chore: update kagi-cli to vX.Y.Z"
+git push origin master
+
+# verify the published AUR metadata
+curl -s 'https://aur.archlinux.org/rpc/?v=5&type=info&arg[]=kagi-cli'
+```
+
+If `makepkg` is unavailable on the current machine, do the `.SRCINFO` regeneration from an Arch environment before pushing.
+
 ### Cargo
 
 There is no crates.io publish step. `cargo install` currently pulls from GitHub, so no separate registry release is required.
