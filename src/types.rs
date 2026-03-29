@@ -272,6 +272,8 @@ pub struct AssistantPromptRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lens_id: Option<u64>,
@@ -401,6 +403,229 @@ pub struct AssistantThreadExportResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
     pub markdown: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AssistantProfileSummary {
+    pub id: String,
+    pub name: String,
+    pub invoke_profile: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bang_trigger: Option<String>,
+    pub internet_access: bool,
+    pub built_in: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edit_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AssistantProfileDetails {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bang_trigger: Option<String>,
+    pub internet_access: bool,
+    pub selected_lens: String,
+    pub personalizations: bool,
+    pub base_model: String,
+    pub custom_instructions: String,
+    pub delete_supported: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssistantProfileCreateRequest {
+    pub name: String,
+    pub bang_trigger: Option<String>,
+    pub internet_access: Option<bool>,
+    pub selected_lens: Option<String>,
+    pub personalizations: Option<bool>,
+    pub base_model: Option<String>,
+    pub custom_instructions: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssistantProfileUpdateRequest {
+    pub target: String,
+    pub name: Option<String>,
+    pub bang_trigger: Option<String>,
+    pub internet_access: Option<bool>,
+    pub selected_lens: Option<String>,
+    pub personalizations: Option<bool>,
+    pub base_model: Option<String>,
+    pub custom_instructions: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LensSummary {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<u32>,
+    pub edit_url: String,
+    #[serde(skip)]
+    pub toggle_field: String,
+    #[serde(skip)]
+    pub toggle_value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LensDetails {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub name: String,
+    pub included_sites: String,
+    pub included_keywords: String,
+    pub description: String,
+    pub search_region: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before_time: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after_time: Option<String>,
+    pub excluded_sites: String,
+    pub excluded_keywords: String,
+    pub shortcut_keyword: String,
+    pub autocomplete_keywords: bool,
+    pub template: String,
+    pub file_type: String,
+    pub share_with_team: bool,
+    pub share_copy_code: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LensCreateRequest {
+    pub name: String,
+    pub included_sites: Option<String>,
+    pub included_keywords: Option<String>,
+    pub description: Option<String>,
+    pub search_region: Option<String>,
+    pub before_time: Option<String>,
+    pub after_time: Option<String>,
+    pub excluded_sites: Option<String>,
+    pub excluded_keywords: Option<String>,
+    pub shortcut_keyword: Option<String>,
+    pub autocomplete_keywords: Option<bool>,
+    pub template: Option<String>,
+    pub file_type: Option<String>,
+    pub share_with_team: Option<bool>,
+    pub share_copy_code: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LensUpdateRequest {
+    pub target: String,
+    pub name: Option<String>,
+    pub included_sites: Option<String>,
+    pub included_keywords: Option<String>,
+    pub description: Option<String>,
+    pub search_region: Option<String>,
+    pub before_time: Option<String>,
+    pub after_time: Option<String>,
+    pub excluded_sites: Option<String>,
+    pub excluded_keywords: Option<String>,
+    pub shortcut_keyword: Option<String>,
+    pub autocomplete_keywords: Option<bool>,
+    pub template: Option<String>,
+    pub file_type: Option<String>,
+    pub share_with_team: Option<bool>,
+    pub share_copy_code: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CustomBangSummary {
+    pub id: String,
+    pub name: String,
+    pub trigger: String,
+    pub shortcut_menu: bool,
+    pub edit_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CustomBangDetails {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bang_id: Option<String>,
+    pub name: String,
+    pub trigger: String,
+    pub template: String,
+    pub snap_domain: String,
+    pub regex_pattern: String,
+    pub shortcut_menu: bool,
+    pub fmt_open_snap_domain: bool,
+    pub fmt_open_base_path: bool,
+    pub fmt_url_encode_placeholder: bool,
+    pub fmt_url_encode_space_to_plus: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CustomBangCreateRequest {
+    pub name: String,
+    pub trigger: String,
+    pub template: Option<String>,
+    pub snap_domain: Option<String>,
+    pub regex_pattern: Option<String>,
+    pub shortcut_menu: Option<bool>,
+    pub fmt_open_snap_domain: Option<bool>,
+    pub fmt_open_base_path: Option<bool>,
+    pub fmt_url_encode_placeholder: Option<bool>,
+    pub fmt_url_encode_space_to_plus: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CustomBangUpdateRequest {
+    pub target: String,
+    pub name: Option<String>,
+    pub trigger: Option<String>,
+    pub template: Option<String>,
+    pub snap_domain: Option<String>,
+    pub regex_pattern: Option<String>,
+    pub shortcut_menu: Option<bool>,
+    pub fmt_open_snap_domain: Option<bool>,
+    pub fmt_open_base_path: Option<bool>,
+    pub fmt_url_encode_placeholder: Option<bool>,
+    pub fmt_url_encode_space_to_plus: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RedirectRuleSummary {
+    pub id: String,
+    pub rule: String,
+    pub enabled: bool,
+    pub edit_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RedirectRuleDetails {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule_id: Option<String>,
+    pub rule: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedirectRuleCreateRequest {
+    pub rule: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RedirectRuleUpdateRequest {
+    pub target: String,
+    pub rule: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeletedResourceResponse {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ToggleResourceResponse {
+    pub id: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

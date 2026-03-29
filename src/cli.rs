@@ -66,6 +66,25 @@ impl std::fmt::Display for QuickOutputFormat {
 }
 
 #[derive(Debug, Clone, ValueEnum)]
+pub enum AssistantOutputFormat {
+    Json,
+    Pretty,
+    Compact,
+    Markdown,
+}
+
+impl std::fmt::Display for AssistantOutputFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssistantOutputFormat::Json => write!(f, "json"),
+            AssistantOutputFormat::Pretty => write!(f, "pretty"),
+            AssistantOutputFormat::Compact => write!(f, "compact"),
+            AssistantOutputFormat::Markdown => write!(f, "markdown"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, ValueEnum)]
 pub enum SearchOrder {
     Default,
     Recency,
@@ -79,6 +98,21 @@ pub enum SearchTime {
     Week,
     Month,
     Year,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum LensTemplate {
+    Default,
+    News,
+}
+
+impl LensTemplate {
+    pub fn as_form_value(&self) -> &'static str {
+        match self {
+            Self::Default => "0",
+            Self::News => "1",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -171,6 +205,12 @@ pub enum Commands {
     Enrich(EnrichCommand),
     /// Fetch the Kagi Small Web feed
     Smallweb(SmallWebArgs),
+    /// Manage Kagi search lenses
+    Lens(LensCommand),
+    /// Manage custom bangs
+    Bang(BangCommand),
+    /// Manage search redirect rules
+    Redirect(RedirectCommand),
     /// Execute multiple searches in parallel with rate limiting
     ///
     /// Example: kagi batch "rust" "python" "go" --concurrency 5 --rate-limit 120
@@ -198,6 +238,10 @@ pub struct SearchArgs {
     /// Disable colored terminal output (only affects pretty format)
     #[arg(long)]
     pub no_color: bool,
+
+    /// Prefix the search with a Snap shortcut (for example "reddit" becomes "@reddit QUERY")
+    #[arg(long, value_name = "SNAP")]
+    pub snap: Option<String>,
 
     /// Scope search to a Kagi lens by numeric index (e.g., "0", "1", "2").
     ///
@@ -262,6 +306,10 @@ pub struct BatchSearchArgs {
     /// Disable colored terminal output
     #[arg(long)]
     pub no_color: bool,
+
+    /// Prefix every search with a Snap shortcut (for example "reddit" becomes "@reddit QUERY")
+    #[arg(long, value_name = "SNAP")]
+    pub snap: Option<String>,
 
     /// Scope all searches to a Kagi lens by numeric index
     #[arg(long, value_name = "INDEX")]
@@ -476,6 +524,18 @@ pub struct AssistantArgs {
     #[arg(long, value_name = "THREAD_ID")]
     pub thread_id: Option<String>,
 
+    /// Use a saved assistant by name, id, or invoke profile slug
+    #[arg(long, value_name = "ASSISTANT")]
+    pub assistant: Option<String>,
+
+    /// Output format for assistant prompt mode
+    #[arg(long, value_name = "FORMAT", default_value_t = AssistantOutputFormat::Json)]
+    pub format: AssistantOutputFormat,
+
+    /// Disable colored terminal output (only affects pretty format)
+    #[arg(long)]
+    pub no_color: bool,
+
     /// Override the Assistant model slug for this prompt
     #[arg(long, value_name = "MODEL")]
     pub model: Option<String>,
@@ -505,6 +565,8 @@ pub struct AssistantArgs {
 pub enum AssistantSubcommand {
     /// Manage Assistant threads
     Thread(AssistantThreadArgs),
+    /// Manage custom assistants
+    Custom(AssistantCustomArgs),
 }
 
 #[derive(Debug, Args)]
@@ -541,6 +603,115 @@ pub struct AssistantThreadExportArgs {
     /// Export format
     #[arg(long, value_name = "FORMAT", value_enum, default_value = "markdown")]
     pub format: AssistantThreadExportFormat,
+}
+
+#[derive(Debug, Args)]
+pub struct AssistantCustomArgs {
+    #[command(subcommand)]
+    pub command: AssistantCustomSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AssistantCustomSubcommand {
+    /// List custom and built-in assistants visible to the account
+    List,
+    /// Fetch one custom assistant definition by id or name
+    Get(AssistantCustomTargetArgs),
+    /// Create a custom assistant
+    Create(AssistantCustomCreateArgs),
+    /// Update a custom assistant by id or name
+    Update(AssistantCustomUpdateArgs),
+    /// Delete a custom assistant by id or name
+    Delete(AssistantCustomTargetArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct AssistantCustomTargetArgs {
+    /// Custom assistant id or exact assistant name
+    #[arg(value_name = "ID_OR_NAME")]
+    pub target: String,
+}
+
+#[derive(Debug, Args)]
+pub struct AssistantCustomCreateArgs {
+    /// Assistant name
+    #[arg(value_name = "NAME")]
+    pub name: String,
+
+    /// Optional bang trigger without the leading '!'
+    #[arg(long, value_name = "TRIGGER")]
+    pub bang_trigger: Option<String>,
+
+    /// Enable internet access for this assistant
+    #[arg(long, conflicts_with = "no_web_access")]
+    pub web_access: bool,
+
+    /// Disable internet access for this assistant
+    #[arg(long, conflicts_with = "web_access")]
+    pub no_web_access: bool,
+
+    /// Lens id to scope assistant web access
+    #[arg(long, value_name = "LENS_ID")]
+    pub lens: Option<String>,
+
+    /// Enable personalizations
+    #[arg(long, conflicts_with = "no_personalized")]
+    pub personalized: bool,
+
+    /// Disable personalizations
+    #[arg(long, conflicts_with = "personalized")]
+    pub no_personalized: bool,
+
+    /// Base model slug
+    #[arg(long, value_name = "MODEL")]
+    pub model: Option<String>,
+
+    /// Custom instructions text
+    #[arg(long, value_name = "TEXT")]
+    pub instructions: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct AssistantCustomUpdateArgs {
+    /// Custom assistant id or exact assistant name
+    #[arg(value_name = "ID_OR_NAME")]
+    pub target: String,
+
+    /// New assistant name
+    #[arg(long, value_name = "NAME")]
+    pub name: Option<String>,
+
+    /// New bang trigger without the leading '!'
+    #[arg(long, value_name = "TRIGGER")]
+    pub bang_trigger: Option<String>,
+
+    /// Enable internet access for this assistant
+    #[arg(long, conflicts_with = "no_web_access")]
+    pub web_access: bool,
+
+    /// Disable internet access for this assistant
+    #[arg(long, conflicts_with = "web_access")]
+    pub no_web_access: bool,
+
+    /// New lens id to scope assistant web access
+    #[arg(long, value_name = "LENS_ID")]
+    pub lens: Option<String>,
+
+    /// Enable personalizations
+    #[arg(long, conflicts_with = "no_personalized")]
+    pub personalized: bool,
+
+    /// Disable personalizations
+    #[arg(long, conflicts_with = "personalized")]
+    pub no_personalized: bool,
+
+    /// New base model slug
+    #[arg(long, value_name = "MODEL")]
+    pub model: Option<String>,
+
+    /// New custom instructions text
+    #[arg(long, value_name = "TEXT")]
+    pub instructions: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -696,9 +867,350 @@ pub struct SmallWebArgs {
     pub limit: Option<u32>,
 }
 
+#[derive(Debug, Args)]
+pub struct LensCommand {
+    #[command(subcommand)]
+    pub command: LensSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum LensSubcommand {
+    /// List available lenses and whether they are enabled
+    List,
+    /// Fetch one lens definition by id or exact name
+    Get(LensTargetArgs),
+    /// Create a lens
+    Create(LensCreateArgs),
+    /// Update a lens by id or exact name
+    Update(LensUpdateArgs),
+    /// Delete a lens by id or exact name
+    Delete(LensTargetArgs),
+    /// Enable a lens by id or exact name
+    Enable(LensTargetArgs),
+    /// Disable a lens by id or exact name
+    Disable(LensTargetArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct LensTargetArgs {
+    /// Lens id or exact lens name
+    #[arg(value_name = "ID_OR_NAME")]
+    pub target: String,
+}
+
+#[derive(Debug, Args)]
+pub struct LensCreateArgs {
+    /// Lens display name
+    #[arg(value_name = "NAME")]
+    pub name: String,
+
+    #[arg(long, value_name = "CSV")]
+    pub included_sites: Option<String>,
+
+    #[arg(long, value_name = "CSV")]
+    pub included_keywords: Option<String>,
+
+    #[arg(long, value_name = "TEXT")]
+    pub description: Option<String>,
+
+    #[arg(long, value_name = "REGION")]
+    pub region: Option<String>,
+
+    #[arg(long, value_name = "YYYY-MM-DD")]
+    pub before_date: Option<String>,
+
+    #[arg(long, value_name = "YYYY-MM-DD")]
+    pub after_date: Option<String>,
+
+    #[arg(long, value_name = "CSV")]
+    pub excluded_sites: Option<String>,
+
+    #[arg(long, value_name = "CSV")]
+    pub excluded_keywords: Option<String>,
+
+    #[arg(long, value_name = "KEYWORD")]
+    pub shortcut: Option<String>,
+
+    #[arg(long, conflicts_with = "no_autocomplete_keywords")]
+    pub autocomplete_keywords: bool,
+
+    #[arg(long, conflicts_with = "autocomplete_keywords")]
+    pub no_autocomplete_keywords: bool,
+
+    #[arg(long, value_name = "TEMPLATE", value_enum)]
+    pub template: Option<LensTemplate>,
+
+    #[arg(long, value_name = "EXT")]
+    pub file_type: Option<String>,
+
+    #[arg(long, conflicts_with = "no_share_with_team")]
+    pub share_with_team: bool,
+
+    #[arg(long, conflicts_with = "share_with_team")]
+    pub no_share_with_team: bool,
+
+    #[arg(long, conflicts_with = "no_share_copy_code")]
+    pub share_copy_code: bool,
+
+    #[arg(long, conflicts_with = "share_copy_code")]
+    pub no_share_copy_code: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct LensUpdateArgs {
+    /// Lens id or exact lens name
+    #[arg(value_name = "ID_OR_NAME")]
+    pub target: String,
+
+    #[arg(long, value_name = "NAME")]
+    pub name: Option<String>,
+
+    #[arg(long, value_name = "CSV")]
+    pub included_sites: Option<String>,
+
+    #[arg(long, value_name = "CSV")]
+    pub included_keywords: Option<String>,
+
+    #[arg(long, value_name = "TEXT")]
+    pub description: Option<String>,
+
+    #[arg(long, value_name = "REGION")]
+    pub region: Option<String>,
+
+    #[arg(long, value_name = "YYYY-MM-DD")]
+    pub before_date: Option<String>,
+
+    #[arg(long, value_name = "YYYY-MM-DD")]
+    pub after_date: Option<String>,
+
+    #[arg(long, value_name = "CSV")]
+    pub excluded_sites: Option<String>,
+
+    #[arg(long, value_name = "CSV")]
+    pub excluded_keywords: Option<String>,
+
+    #[arg(long, value_name = "KEYWORD")]
+    pub shortcut: Option<String>,
+
+    #[arg(long, conflicts_with = "no_autocomplete_keywords")]
+    pub autocomplete_keywords: bool,
+
+    #[arg(long, conflicts_with = "autocomplete_keywords")]
+    pub no_autocomplete_keywords: bool,
+
+    #[arg(long, value_name = "TEMPLATE", value_enum)]
+    pub template: Option<LensTemplate>,
+
+    #[arg(long, value_name = "EXT")]
+    pub file_type: Option<String>,
+
+    #[arg(long, conflicts_with = "no_share_with_team")]
+    pub share_with_team: bool,
+
+    #[arg(long, conflicts_with = "share_with_team")]
+    pub no_share_with_team: bool,
+
+    #[arg(long, conflicts_with = "no_share_copy_code")]
+    pub share_copy_code: bool,
+
+    #[arg(long, conflicts_with = "share_copy_code")]
+    pub no_share_copy_code: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct BangCommand {
+    #[command(subcommand)]
+    pub command: BangSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum BangSubcommand {
+    /// Manage custom bangs
+    Custom(CustomBangCommand),
+}
+
+#[derive(Debug, Args)]
+pub struct CustomBangCommand {
+    #[command(subcommand)]
+    pub command: CustomBangSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CustomBangSubcommand {
+    /// List custom bangs
+    List,
+    /// Fetch one custom bang by id, exact name, or trigger
+    Get(CustomBangTargetArgs),
+    /// Create a custom bang
+    Create(CustomBangCreateArgs),
+    /// Update a custom bang by id, exact name, or trigger
+    Update(CustomBangUpdateArgs),
+    /// Delete a custom bang by id, exact name, or trigger
+    Delete(CustomBangTargetArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct CustomBangTargetArgs {
+    /// Bang id, exact name, or trigger (with or without leading '!')
+    #[arg(value_name = "ID_OR_NAME")]
+    pub target: String,
+}
+
+#[derive(Debug, Args)]
+pub struct CustomBangCreateArgs {
+    /// Bang display name
+    #[arg(value_name = "NAME")]
+    pub name: String,
+
+    /// Bang trigger without the leading '!'
+    #[arg(long, value_name = "TRIGGER")]
+    pub trigger: String,
+
+    #[arg(long, value_name = "URL")]
+    pub template: Option<String>,
+
+    #[arg(long, value_name = "DOMAIN")]
+    pub snap_domain: Option<String>,
+
+    #[arg(long, value_name = "REGEX")]
+    pub regex_pattern: Option<String>,
+
+    #[arg(long, conflicts_with = "no_shortcut_menu")]
+    pub shortcut_menu: bool,
+
+    #[arg(long, conflicts_with = "shortcut_menu")]
+    pub no_shortcut_menu: bool,
+
+    #[arg(long, conflicts_with = "no_open_snap_domain")]
+    pub open_snap_domain: bool,
+
+    #[arg(long, conflicts_with = "open_snap_domain")]
+    pub no_open_snap_domain: bool,
+
+    #[arg(long, conflicts_with = "no_open_base_path")]
+    pub open_base_path: bool,
+
+    #[arg(long, conflicts_with = "open_base_path")]
+    pub no_open_base_path: bool,
+
+    #[arg(long, conflicts_with = "no_encode_placeholder")]
+    pub encode_placeholder: bool,
+
+    #[arg(long, conflicts_with = "encode_placeholder")]
+    pub no_encode_placeholder: bool,
+
+    #[arg(long, conflicts_with = "no_plus_for_space")]
+    pub plus_for_space: bool,
+
+    #[arg(long, conflicts_with = "plus_for_space")]
+    pub no_plus_for_space: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct CustomBangUpdateArgs {
+    /// Bang id, exact name, or trigger (with or without leading '!')
+    #[arg(value_name = "ID_OR_NAME")]
+    pub target: String,
+
+    #[arg(long, value_name = "NAME")]
+    pub name: Option<String>,
+
+    #[arg(long, value_name = "TRIGGER")]
+    pub trigger: Option<String>,
+
+    #[arg(long, value_name = "URL")]
+    pub template: Option<String>,
+
+    #[arg(long, value_name = "DOMAIN")]
+    pub snap_domain: Option<String>,
+
+    #[arg(long, value_name = "REGEX")]
+    pub regex_pattern: Option<String>,
+
+    #[arg(long, conflicts_with = "no_shortcut_menu")]
+    pub shortcut_menu: bool,
+
+    #[arg(long, conflicts_with = "shortcut_menu")]
+    pub no_shortcut_menu: bool,
+
+    #[arg(long, conflicts_with = "no_open_snap_domain")]
+    pub open_snap_domain: bool,
+
+    #[arg(long, conflicts_with = "open_snap_domain")]
+    pub no_open_snap_domain: bool,
+
+    #[arg(long, conflicts_with = "no_open_base_path")]
+    pub open_base_path: bool,
+
+    #[arg(long, conflicts_with = "open_base_path")]
+    pub no_open_base_path: bool,
+
+    #[arg(long, conflicts_with = "no_encode_placeholder")]
+    pub encode_placeholder: bool,
+
+    #[arg(long, conflicts_with = "encode_placeholder")]
+    pub no_encode_placeholder: bool,
+
+    #[arg(long, conflicts_with = "no_plus_for_space")]
+    pub plus_for_space: bool,
+
+    #[arg(long, conflicts_with = "plus_for_space")]
+    pub no_plus_for_space: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct RedirectCommand {
+    #[command(subcommand)]
+    pub command: RedirectSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum RedirectSubcommand {
+    /// List redirect rules
+    List,
+    /// Fetch one redirect rule by id or exact rule text
+    Get(RedirectTargetArgs),
+    /// Create a redirect rule
+    Create(RedirectCreateArgs),
+    /// Update a redirect rule by id or exact rule text
+    Update(RedirectUpdateArgs),
+    /// Delete a redirect rule by id or exact rule text
+    Delete(RedirectTargetArgs),
+    /// Enable a redirect rule by id or exact rule text
+    Enable(RedirectTargetArgs),
+    /// Disable a redirect rule by id or exact rule text
+    Disable(RedirectTargetArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct RedirectTargetArgs {
+    /// Redirect id or exact rule text
+    #[arg(value_name = "ID_OR_RULE")]
+    pub target: String,
+}
+
+#[derive(Debug, Args)]
+pub struct RedirectCreateArgs {
+    /// Full regex|replacement rule
+    #[arg(value_name = "RULE")]
+    pub rule: String,
+}
+
+#[derive(Debug, Args)]
+pub struct RedirectUpdateArgs {
+    /// Redirect id or exact rule text
+    #[arg(value_name = "ID_OR_RULE")]
+    pub target: String,
+
+    /// Full replacement regex|replacement rule
+    #[arg(value_name = "RULE")]
+    pub rule: String,
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{NewsArgs, NewsFilterMode, NewsFilterScope};
+    use super::{Cli, Commands, NewsArgs, NewsFilterMode, NewsFilterScope};
+    use clap::Parser;
 
     fn sample_news_args() -> NewsArgs {
         NewsArgs {
@@ -745,5 +1257,68 @@ mod tests {
 
         assert!(args.validate().is_ok());
         assert!(args.has_filter_inputs());
+    }
+
+    #[test]
+    fn parses_lens_enable_command() {
+        let cli = Cli::try_parse_from(["kagi", "lens", "enable", "Reddit"])
+            .expect("lens command should parse");
+
+        match cli.command.expect("command") {
+            Commands::Lens(command) => match command.command {
+                super::LensSubcommand::Enable(target) => assert_eq!(target.target, "Reddit"),
+                other => panic!("unexpected lens subcommand: {other:?}"),
+            },
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_assistant_custom_update_command() {
+        let cli = Cli::try_parse_from([
+            "kagi",
+            "assistant",
+            "custom",
+            "update",
+            "Writer",
+            "--model",
+            "gpt-5-mini",
+            "--no-web-access",
+        ])
+        .expect("assistant custom update should parse");
+
+        match cli.command.expect("command") {
+            Commands::Assistant(args) => match args.command.expect("subcommand") {
+                super::AssistantSubcommand::Custom(custom) => match custom.command {
+                    super::AssistantCustomSubcommand::Update(update) => {
+                        assert_eq!(update.target, "Writer");
+                        assert_eq!(update.model.as_deref(), Some("gpt-5-mini"));
+                        assert!(update.no_web_access);
+                    }
+                    other => panic!("unexpected assistant custom subcommand: {other:?}"),
+                },
+                other => panic!("unexpected assistant subcommand: {other:?}"),
+            },
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejects_conflicting_redirect_flags() {
+        let error = Cli::try_parse_from([
+            "kagi",
+            "bang",
+            "custom",
+            "create",
+            "Example",
+            "--trigger",
+            "ex",
+            "--shortcut-menu",
+            "--no-shortcut-menu",
+        ])
+        .expect_err("conflicting flags should fail");
+
+        let rendered = error.to_string();
+        assert!(rendered.contains("--shortcut-menu"));
     }
 }

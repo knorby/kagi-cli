@@ -1,0 +1,155 @@
+---
+title: "bang"
+description: "Complete reference for *kagi* bang command - list, inspect, create, update, and delete custom bangs."
+---
+
+# `kagi bang`
+
+Manage custom Kagi bangs from the terminal.
+
+## Synopsis
+
+```bash
+kagi bang custom list
+kagi bang custom get <ID_OR_NAME>
+kagi bang custom create <NAME> --trigger <TRIGGER> [OPTIONS]
+kagi bang custom update <ID_OR_NAME> [OPTIONS]
+kagi bang custom delete <ID_OR_NAME>
+```
+
+## Authentication
+
+**Required:** `KAGI_SESSION_TOKEN`
+
+Custom bang management uses Kagi's authenticated settings pages.
+
+## Subcommands
+
+### `kagi bang custom list`
+
+List custom bangs.
+
+```bash
+kagi bang custom list | jq -r '.[] | "\(.trigger) \(.name)"'
+```
+
+### `kagi bang custom get <ID_OR_NAME>`
+
+Fetch one custom bang by id, exact name, or trigger. Triggers may be supplied with or without the leading `!`.
+
+```bash
+kagi bang custom get "!rustdocs"
+```
+
+### `kagi bang custom create <NAME> --trigger <TRIGGER>`
+
+Create a custom bang.
+
+Supported options:
+
+- `--template <URL>`
+- `--snap-domain <DOMAIN>`
+- `--regex-pattern <REGEX>`
+- `--shortcut-menu` / `--no-shortcut-menu`
+- `--open-snap-domain` / `--no-open-snap-domain`
+- `--open-base-path` / `--no-open-base-path`
+- `--encode-placeholder` / `--no-encode-placeholder`
+- `--plus-for-space` / `--no-plus-for-space`
+
+```bash
+kagi bang custom create "Rust Docs" \
+  --trigger rustdocs \
+  --template "https://doc.rust-lang.org/std/?search=%s" \
+  --shortcut-menu \
+  --encode-placeholder
+```
+
+### `kagi bang custom update <ID_OR_NAME>`
+
+Update a custom bang.
+
+```bash
+kagi bang custom update rustdocs \
+  --template "https://doc.rust-lang.org/std/?search=%s" \
+  --plus-for-space
+```
+
+### `kagi bang custom delete <ID_OR_NAME>`
+
+Delete a custom bang.
+
+```bash
+kagi bang custom delete rustdocs
+```
+
+## Output Contract
+
+`list` returns an array of summaries:
+
+```json
+[
+  {
+    "id": "7",
+    "name": "Rust Docs",
+    "trigger": "rustdocs",
+    "shortcut_menu": true,
+    "edit_url": "/settings/custom_bangs/edit/7"
+  }
+]
+```
+
+`get`, `create`, and `update` return full bang details:
+
+```json
+{
+  "bang_id": "7",
+  "name": "Rust Docs",
+  "trigger": "rustdocs",
+  "template": "https://doc.rust-lang.org/std/?search=%s",
+  "snap_domain": "",
+  "regex_pattern": "",
+  "shortcut_menu": true,
+  "fmt_open_snap_domain": false,
+  "fmt_open_base_path": false,
+  "fmt_url_encode_placeholder": true,
+  "fmt_url_encode_space_to_plus": false
+}
+```
+
+`delete` returns:
+
+```json
+{
+  "id": "7"
+}
+```
+
+## Examples
+
+Create a bang and verify it:
+
+```bash
+kagi bang custom create "Rust Docs" \
+  --trigger rustdocs \
+  --template "https://doc.rust-lang.org/std/?search=%s"
+
+kagi bang custom get rustdocs
+```
+
+List bangs ready for shortcut-menu use:
+
+```bash
+kagi bang custom list | jq -r '.[] | select(.shortcut_menu) | .trigger'
+```
+
+## Notes
+
+- Targets may be the bang id, exact name, or trigger.
+- The CLI normalizes bang targets so `rustdocs` and `!rustdocs` resolve to the same bang.
+- `snap_domain` and the `fmt_*` fields map directly to Kagi's current custom-bang settings form.
+
+## See Also
+
+- [search](/commands/search) - combine bangs with search workflows
+- [redirect](/commands/redirect) - manage redirect rules alongside custom bangs
+- [auth-matrix](/reference/auth-matrix)

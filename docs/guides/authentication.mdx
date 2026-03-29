@@ -35,7 +35,11 @@ The *kagi* CLI supports two distinct credential types that unlock different capa
 - Session-backed filtered search
 - Kagi Quick Answer (`kagi quick`)
 - Kagi Assistant (`kagi assistant`)
+- Custom assistant management (`kagi assistant custom`)
 - Ask Page (`kagi ask-page`)
+- Lens management (`kagi lens`)
+- Custom bang management (`kagi bang custom`)
+- Redirect rule management (`kagi redirect`)
 - Kagi Translate (`kagi translate`)
 - Subscriber Summarizer (`kagi summarize --subscriber`)
 - Base search via the web product path
@@ -377,8 +381,12 @@ These commands require `KAGI_SESSION_TOKEN`:
 - `kagi search --lens <INDEX>` - Lens-aware search
 - `kagi search --region ...`, `--time ...`, `--from-date ...`, `--to-date ...`, `--order ...`, `--verbatim`, personalization flags - session-backed filtered search
 - `kagi assistant` - AI Assistant
+- `kagi assistant custom` - saved assistant CRUD
 - `kagi quick` - Quick Answer
 - `kagi ask-page` - Ask Assistant about one page
+- `kagi lens` - lens CRUD and enable/disable
+- `kagi bang custom` - custom bang CRUD
+- `kagi redirect` - redirect rule CRUD and enable/disable
 - `kagi translate` - Kagi Translate text mode
 - `kagi summarize --subscriber` - Subscriber Summarizer
 - Base search (if no API token configured)

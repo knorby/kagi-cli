@@ -1,0 +1,161 @@
+---
+title: "redirect"
+description: "Complete reference for *kagi* redirect command - list, inspect, create, update, enable, disable, and delete redirect rules."
+---
+
+# `kagi redirect`
+
+Manage Kagi search redirect rules from the terminal.
+
+## Synopsis
+
+```bash
+kagi redirect list
+kagi redirect get <ID_OR_RULE>
+kagi redirect create <RULE>
+kagi redirect update <ID_OR_RULE> <RULE>
+kagi redirect enable <ID_OR_RULE>
+kagi redirect disable <ID_OR_RULE>
+kagi redirect delete <ID_OR_RULE>
+```
+
+## Authentication
+
+**Required:** `KAGI_SESSION_TOKEN`
+
+Redirect management uses Kagi's authenticated settings pages.
+
+## Rule Format
+
+Rules must use Kagi's current `regex|replacement` format.
+
+```bash
+kagi redirect create "^gh/(.+)$|https://github.com/$1"
+```
+
+## Subcommands
+
+### `kagi redirect list`
+
+List redirect rules.
+
+```bash
+kagi redirect list | jq -r '.[] | "\(.enabled) \(.rule)"'
+```
+
+### `kagi redirect get <ID_OR_RULE>`
+
+Fetch one redirect rule by id or exact rule text.
+
+```bash
+kagi redirect get "^gh/(.+)$|https://github.com/$1"
+```
+
+### `kagi redirect create <RULE>`
+
+Create a redirect rule.
+
+```bash
+kagi redirect create "^gh/(.+)$|https://github.com/$1"
+```
+
+### `kagi redirect update <ID_OR_RULE> <RULE>`
+
+Update a redirect rule by id or exact rule text.
+
+```bash
+kagi redirect update "12" "^gh/(.+)$|https://github.com/$1"
+```
+
+### `kagi redirect enable <ID_OR_RULE>`
+
+Enable a redirect rule.
+
+```bash
+kagi redirect enable "12"
+```
+
+### `kagi redirect disable <ID_OR_RULE>`
+
+Disable a redirect rule.
+
+```bash
+kagi redirect disable "12"
+```
+
+### `kagi redirect delete <ID_OR_RULE>`
+
+Delete a redirect rule.
+
+```bash
+kagi redirect delete "12"
+```
+
+## Output Contract
+
+`list` returns an array of summaries:
+
+```json
+[
+  {
+    "id": "12",
+    "rule": "^gh/(.+)$|https://github.com/$1",
+    "enabled": true,
+    "edit_url": "/rewrite_rules/edit/12"
+  }
+]
+```
+
+`get`, `create`, and `update` return full rule details:
+
+```json
+{
+  "rule_id": "12",
+  "rule": "^gh/(.+)$|https://github.com/$1",
+  "enabled": true
+}
+```
+
+`enable` and `disable` return:
+
+```json
+{
+  "id": "12",
+  "enabled": true
+}
+```
+
+`delete` returns:
+
+```json
+{
+  "id": "12"
+}
+```
+
+## Examples
+
+Create a redirect rule, verify it, then enable it:
+
+```bash
+kagi redirect create "^gh/(.+)$|https://github.com/$1"
+kagi redirect list
+kagi redirect enable "^gh/(.+)$|https://github.com/$1"
+```
+
+Inspect only enabled rules:
+
+```bash
+kagi redirect list | jq -r '.[] | select(.enabled) | .rule'
+```
+
+## Notes
+
+- Targets may be the numeric redirect id or the exact rule text.
+- The CLI validates that rule bodies are non-empty and use the `regex|replacement` form before sending them.
+
+## See Also
+
+- [bang](/commands/bang) - manage related shortcut behavior
+- [auth-matrix](/reference/auth-matrix)
+- [output-contract](/reference/output-contract)

@@ -1,6 +1,6 @@
 ---
 title: "search"
-description: "Complete reference for *kagi* search command - syntax, filters, authentication, output formats, and examples."
+description: "Complete reference for *kagi* search command - syntax, snaps, filters, authentication, output formats, and examples."
 ---
 
 # `kagi search`
@@ -24,7 +24,9 @@ There are now two search modes:
 - **Base search** uses your configured base-search auth preference. By default this repo prefers the subscriber session path. If you set `[auth.preferred_auth] = "api"`, base search uses the Search API first and can fall back to the subscriber web-product path on API auth rejection.
 - **Filtered search** uses Kagi's authenticated HTML/session search path and requires `KAGI_SESSION_TOKEN`.
 
-This matters because the Kagi Search API is still base-search only in this CLI. As soon as you add live search filters like `--region`, `--time`, `--order`, `--verbatim`, or `--personalized`, the request becomes session-only.
+This matters because the Kagi Search API is still base-search only in this CLI. As soon as you add live search filters like `--lens`, `--region`, `--time`, `--order`, `--verbatim`, or `--personalized`, the request becomes session-only.
+
+`--snap` works in either mode. It simply prefixes your query with a snap shortcut before the request is built.
 
 ## Authentication
 
@@ -81,6 +83,15 @@ Possible values:
 ### `--no-color`
 
 Disable ANSI colors in `--format pretty`.
+
+### `--snap <SNAP>`
+
+Prefix the query with a snap shortcut. `reddit` becomes `@reddit QUERY`. Values may be supplied with or without the leading `@`.
+
+```bash
+kagi search --snap reddit "rust async runtime"
+kagi search --snap @map "coffee near london bridge"
+```
 
 ### `--lens <INDEX>`
 
@@ -194,6 +205,12 @@ The search response shape is unchanged:
 kagi search "rust programming language"
 ```
 
+### Snap-prefixed search
+
+```bash
+kagi search --snap reddit "rust async runtime"
+```
+
 ### Human-readable output
 
 ```bash
@@ -259,13 +276,14 @@ kagi search --format markdown "rust ownership"
 
 ## Related Commands
 
-- `kagi batch` - run multiple searches with the same search filters
+- `kagi batch` - run multiple searches with the same search filters and optional `--snap`
+- `kagi lens` - manage reusable search scopes
 - `kagi assistant` - continue research with Kagi Assistant
-- `kagi summarize` - summarize a page after you find it
 - `kagi auth` - inspect which token path will be used
 
 ## See Also
 
 - [Authentication Guide](/guides/authentication)
+- [lens](/commands/lens)
 - [Auth Matrix](/reference/auth-matrix)
 - [API and Product Coverage](/reference/coverage)

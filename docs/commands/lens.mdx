@@ -1,0 +1,185 @@
+---
+title: "lens"
+description: "Complete reference for *kagi* lens command - list, inspect, create, update, enable, disable, and delete Kagi search lenses."
+---
+
+# `kagi lens`
+
+Manage Kagi search lenses from the terminal.
+
+## Synopsis
+
+```bash
+kagi lens list
+kagi lens get <ID_OR_NAME>
+kagi lens create <NAME> [OPTIONS]
+kagi lens update <ID_OR_NAME> [OPTIONS]
+kagi lens enable <ID_OR_NAME>
+kagi lens disable <ID_OR_NAME>
+kagi lens delete <ID_OR_NAME>
+```
+
+## Authentication
+
+**Required:** `KAGI_SESSION_TOKEN`
+
+Lens management uses Kagi's authenticated settings pages.
+
+## Subcommands
+
+### `kagi lens list`
+
+List available lenses and whether they are enabled.
+
+```bash
+kagi lens list | jq -r '.[] | "\(.name) \(.enabled)"'
+```
+
+### `kagi lens get <ID_OR_NAME>`
+
+Fetch one lens definition by id or exact name.
+
+```bash
+kagi lens get "Reddit"
+```
+
+### `kagi lens create <NAME>`
+
+Create a lens.
+
+Supported options:
+
+- `--included-sites <CSV>`
+- `--included-keywords <CSV>`
+- `--description <TEXT>`
+- `--region <REGION>`
+- `--before-date <YYYY-MM-DD>`
+- `--after-date <YYYY-MM-DD>`
+- `--excluded-sites <CSV>`
+- `--excluded-keywords <CSV>`
+- `--shortcut <KEYWORD>`
+- `--autocomplete-keywords` / `--no-autocomplete-keywords`
+- `--template <default|news>`
+- `--file-type <EXT>`
+- `--share-with-team` / `--no-share-with-team`
+- `--share-copy-code` / `--no-share-copy-code`
+
+```bash
+kagi lens create "Rust Docs" \
+  --included-sites doc.rust-lang.org,rust-lang.github.io \
+  --included-keywords rust,documentation \
+  --description "Rust docs only" \
+  --shortcut rustdocs \
+  --autocomplete-keywords
+```
+
+### `kagi lens update <ID_OR_NAME>`
+
+Update a lens by id or exact name.
+
+```bash
+kagi lens update "Rust Docs" \
+  --description "Rust docs and RFCs" \
+  --included-sites doc.rust-lang.org,rust-lang.github.io,github.com/rust-lang/rfcs
+```
+
+### `kagi lens enable <ID_OR_NAME>`
+
+Enable a lens.
+
+```bash
+kagi lens enable "Rust Docs"
+```
+
+### `kagi lens disable <ID_OR_NAME>`
+
+Disable a lens.
+
+```bash
+kagi lens disable "Rust Docs"
+```
+
+### `kagi lens delete <ID_OR_NAME>`
+
+Delete a lens.
+
+```bash
+kagi lens delete "Rust Docs"
+```
+
+## Output Contract
+
+`list` returns an array of summaries:
+
+```json
+[
+  {
+    "id": "42",
+    "name": "Rust Docs",
+    "description": "Rust docs only",
+    "enabled": true,
+    "position": 2,
+    "edit_url": "/settings/lenses/edit/42"
+  }
+]
+```
+
+`get`, `create`, and `update` return full lens details:
+
+```json
+{
+  "id": "42",
+  "name": "Rust Docs",
+  "included_sites": "doc.rust-lang.org,rust-lang.github.io",
+  "included_keywords": "rust,documentation",
+  "description": "Rust docs only",
+  "search_region": "",
+  "before_time": null,
+  "after_time": null,
+  "excluded_sites": "",
+  "excluded_keywords": "",
+  "shortcut_keyword": "rustdocs",
+  "autocomplete_keywords": true,
+  "template": "0",
+  "file_type": "",
+  "share_with_team": false,
+  "share_copy_code": false
+}
+```
+
+`enable` and `disable` return:
+
+```json
+{
+  "id": "42",
+  "enabled": true
+}
+```
+
+## Examples
+
+Use a lens in search after creating it:
+
+```bash
+kagi lens create "Rust Docs" --included-sites doc.rust-lang.org --shortcut rustdocs
+kagi lens list
+kagi search --lens 2 "ownership"
+```
+
+Inspect the full configuration for one lens:
+
+```bash
+kagi lens get "Rust Docs" | jq
+```
+
+## Notes
+
+- Targets can be either the numeric lens id or the exact lens name.
+- `--template news` maps to Kagi's built-in news lens template.
+- `kagi search --lens` still uses the numeric search lens index, not the lens id shown here.
+
+## See Also
+
+- [search](/commands/search) - use a lens during search
+- [assistant](/commands/assistant) - assistant profiles can also reference a lens id
+- [auth-matrix](/reference/auth-matrix) - auth requirements for settings commands

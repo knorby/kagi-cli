@@ -96,7 +96,7 @@ This is expected - we'll configure credentials next.
 
 ## Step 3: Subscriber Setup with Session Token
 
-To unlock subscriber-only features (lens search, Quick Answer, Assistant, ask-page, translate, and subscriber Summarizer), you need a Kagi Session Token.
+To unlock subscriber-only features (lens search, Quick Answer, Assistant, ask-page, translate, subscriber Summarizer, and account settings management), you need a Kagi Session Token.
 
 ### Getting Your Session Token
 
@@ -181,6 +181,9 @@ kagi search --lens 2 "developer documentation"
 
 # Search with live session-only filters
 kagi search --region us --time month --order recency "rust release notes"
+
+# Reuse one of your Kagi snaps
+kagi search --snap reddit "rust async runtime"
 ```
 
 **Search Demo:**
@@ -202,6 +205,12 @@ kagi ask-page https://rust-lang.org/ "What is this page about?"
 
 # List Assistant threads
 kagi assistant thread list
+
+# Inspect account-level settings
+kagi assistant custom list
+kagi lens list
+kagi bang custom list
+kagi redirect list
 
 # Test subscriber Summarizer
 kagi summarize --subscriber --url https://www.rust-lang.org --summary-type keypoints --length digest

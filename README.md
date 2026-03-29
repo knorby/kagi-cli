@@ -16,7 +16,7 @@
 
 ---
 
-`kagi` is a terminal CLI for Kagi that gives you command-line access to search, quick answers, lenses, ask-page, assistant, translate, summarization, feeds, and paid API commands. it is built for people who want one command surface for interactive use, shell workflows, and structured JSON output.
+`kagi` is a terminal CLI for Kagi that gives you command-line access to search, quick answers, ask-page, assistant, translate, summarization, feeds, paid API commands, and account-level settings like lenses, custom assistants, custom bangs, and redirect rules. it is built for people who want one command surface for interactive use, shell workflows, and structured JSON output.
 
 the main setup path is `kagi auth`. on a real terminal it opens a guided setup flow where you choose `Session Link` or `API Token`, get the official instructions inline, paste the credential, save it to `./.kagi.toml`, and validate it immediately. if you also use Kagi's paid API, the same wizard can add that too.
 
@@ -161,12 +161,15 @@ for the full command-to-token matrix, use the [`auth-matrix`](https://kagi.micr.
 | `kagi summarize` | use the paid public summarizer API or the subscriber summarizer with `--subscriber` |
 | `kagi news` | read Kagi News from public JSON endpoints |
 | `kagi quick` | get a Quick Answer with references |
-| `kagi assistant` | prompt Kagi Assistant, continue threads, and manage thread list/export/delete |
+| `kagi assistant` | prompt Kagi Assistant, continue threads, manage thread list/export/delete, and manage custom assistants |
 | `kagi ask-page` | ask Kagi Assistant about a specific web page |
 | `kagi translate` | translate text through Kagi Translate |
 | `kagi fastgpt` | query FastGPT through the paid API |
 | `kagi enrich` | query Kagi's web and news enrichment indexes |
 | `kagi smallweb` | fetch the Kagi Small Web feed |
+| `kagi lens` | list, inspect, create, update, enable, disable, and delete search lenses |
+| `kagi bang custom` | list, inspect, create, update, and delete custom bangs |
+| `kagi redirect` | list, inspect, create, update, enable, disable, and delete redirect rules |
 
 for automation, stdout stays JSON by default. `--format pretty` only changes rendering for humans.
 
@@ -207,6 +210,12 @@ scope search to one of your lenses:
 kagi search --lens 2 "developer documentation"
 ```
 
+prefix a search with one of your configured snaps:
+
+```bash
+kagi search --snap reddit "rust async runtime"
+```
+
 run a filtered search against the subscriber web-product path:
 
 ```bash
@@ -231,6 +240,12 @@ continue research with assistant:
 kagi assistant "plan a focused research session in the terminal"
 ```
 
+run assistant with a saved assistant profile and markdown output:
+
+```bash
+kagi assistant --assistant research --format markdown "summarize the latest rust release"
+```
+
 ask assistant about a page directly:
 
 ```bash
@@ -242,6 +257,13 @@ list or export Assistant threads:
 ```bash
 kagi assistant thread list
 kagi assistant thread export <THREAD_ID>
+```
+
+manage custom assistants:
+
+```bash
+kagi assistant custom list
+kagi assistant custom create "Release Notes" --model gpt-5-mini --web-access
 ```
 
 get a quick answer with references:
@@ -293,6 +315,14 @@ query enrichment indexes:
 ```bash
 kagi enrich web "local-first software"
 kagi enrich news "browser privacy"
+```
+
+inspect account-level search settings:
+
+```bash
+kagi lens list
+kagi bang custom list
+kagi redirect list
 ```
 
 ## what it looks like

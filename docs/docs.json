@@ -91,6 +91,14 @@
               "commands/fastgpt",
               "commands/enrich"
             ]
+          },
+          {
+            "group": "Settings",
+            "pages": [
+              "commands/lens",
+              "commands/bang",
+              "commands/redirect"
+            ]
           }
         ]
       },
