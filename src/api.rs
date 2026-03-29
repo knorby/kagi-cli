@@ -15,23 +15,33 @@ use tokio::time::sleep;
 use crate::cli::{NewsFilterMode, NewsFilterScope};
 use crate::error::KagiError;
 use crate::http;
-use crate::parser::parse_assistant_thread_list;
+use crate::parser::{
+    parse_assistant_profile_form, parse_assistant_profile_list, parse_assistant_thread_list,
+    parse_custom_bang_form, parse_custom_bang_list, parse_lens_form, parse_lens_list,
+    parse_redirect_form, parse_redirect_list,
+};
 #[cfg(test)]
 use crate::types::ApiMeta;
 use crate::types::{
     AlternativeTranslationsResponse, AskPageRequest, AskPageResponse, AskPageSource,
-    AssistantMessage, AssistantMeta, AssistantPromptRequest, AssistantPromptResponse,
-    AssistantThread, AssistantThreadDeleteResponse, AssistantThreadExportResponse,
-    AssistantThreadListResponse, AssistantThreadOpenResponse, AssistantThreadPagination,
-    EnrichResponse, FastGptRequest, FastGptResponse, NewsBatchCategories, NewsBatchCategory,
-    NewsCategoriesResponse, NewsCategoryMetadata, NewsCategoryMetadataList, NewsChaos,
-    NewsChaosResponse, NewsContentFilterSummary, NewsFilterPresetListEntry,
-    NewsFilterPresetListResponse, NewsLatestBatch, NewsResolvedCategory, NewsStoriesPayload,
-    NewsStoriesResponse, NewsStoryContentFilterSummary, SmallWebFeed, SubscriberSummarization,
+    AssistantMessage, AssistantMeta, AssistantProfileCreateRequest, AssistantProfileDetails,
+    AssistantProfileSummary, AssistantProfileUpdateRequest, AssistantPromptRequest,
+    AssistantPromptResponse, AssistantThread, AssistantThreadDeleteResponse,
+    AssistantThreadExportResponse, AssistantThreadListResponse, AssistantThreadOpenResponse,
+    AssistantThreadPagination, CustomBangCreateRequest, CustomBangDetails, CustomBangSummary,
+    CustomBangUpdateRequest, DeletedResourceResponse, EnrichResponse, FastGptRequest,
+    FastGptResponse, LensCreateRequest, LensDetails, LensSummary, LensUpdateRequest,
+    NewsBatchCategories, NewsBatchCategory, NewsCategoriesResponse, NewsCategoryMetadata,
+    NewsCategoryMetadataList, NewsChaos, NewsChaosResponse, NewsContentFilterSummary,
+    NewsFilterPresetListEntry, NewsFilterPresetListResponse, NewsLatestBatch,
+    NewsResolvedCategory, NewsStoriesPayload, NewsStoriesResponse,
+    NewsStoryContentFilterSummary, RedirectRuleCreateRequest, RedirectRuleDetails,
+    RedirectRuleSummary, RedirectRuleUpdateRequest, SmallWebFeed, SubscriberSummarization,
     SubscriberSummarizeMeta, SubscriberSummarizeRequest, SubscriberSummarizeResponse,
-    SummarizeRequest, SummarizeResponse, TextAlignmentsResponse, TranslateBootstrapMetadata,
-    TranslateCommandRequest, TranslateDetectedLanguage, TranslateOptionState, TranslateResponse,
-    TranslateTextResponse, TranslateWarning, TranslationSuggestionsResponse, WordInsightsResponse,
+    SummarizeRequest, SummarizeResponse, TextAlignmentsResponse, ToggleResourceResponse,
+    TranslateBootstrapMetadata, TranslateCommandRequest, TranslateDetectedLanguage,
+    TranslateOptionState, TranslateResponse, TranslateTextResponse, TranslateWarning,
+    TranslationSuggestionsResponse, WordInsightsResponse,
 };
 
 const KAGI_SUMMARIZE_URL: &str = "https://kagi.com/api/v0/summarize";
@@ -44,6 +54,25 @@ const KAGI_ASSISTANT_PROMPT_URL: &str = "https://kagi.com/assistant/prompt";
 const KAGI_ASSISTANT_THREAD_OPEN_URL: &str = "https://kagi.com/assistant/thread_open";
 const KAGI_ASSISTANT_THREAD_LIST_URL: &str = "https://kagi.com/assistant/thread_list";
 const KAGI_ASSISTANT_THREAD_DELETE_URL: &str = "https://kagi.com/assistant/thread_delete";
+const KAGI_SETTINGS_ASSISTANT_URL: &str = "https://kagi.com/html/settings/assistant";
+const KAGI_SETTINGS_CUSTOM_ASSISTANT_URL: &str = "https://kagi.com/settings/custom_assistant";
+const KAGI_SETTINGS_CUSTOM_ASSISTANT_UPDATE_URL: &str =
+    "https://kagi.com/settings/ast/profiles/update";
+const KAGI_SETTINGS_CUSTOM_ASSISTANT_DELETE_URL: &str =
+    "https://kagi.com/settings/ast/profiles/delete";
+const KAGI_SETTINGS_LENSES_URL: &str = "https://kagi.com/html/settings/lenses";
+const KAGI_SETTINGS_CREATE_LENS_URL: &str = "https://kagi.com/settings/create_lens";
+const KAGI_LENSES_CREATE_URL: &str = "https://kagi.com/lenses/create";
+const KAGI_LENSES_UPDATE_URL: &str = "https://kagi.com/lenses/update";
+const KAGI_LENSES_DELETE_URL: &str = "https://kagi.com/lenses/delete";
+const KAGI_LENSES_SUBSCRIBE_URL: &str = "https://kagi.com/lenses/subscribe";
+const KAGI_SETTINGS_CUSTOM_BANGS_URL: &str = "https://kagi.com/settings/custom_bangs";
+const KAGI_SETTINGS_CUSTOM_BANG_FORM_URL: &str = "https://kagi.com/settings/custom_bangs_form";
+const KAGI_CUSTOM_BANGS_MODIFY_URL: &str = "https://kagi.com/bangs/modify";
+const KAGI_SETTINGS_REDIRECTS_URL: &str = "https://kagi.com/settings/redirects";
+const KAGI_REDIRECTS_CREATE_UPDATE_URL: &str = "https://kagi.com/rewrite_rules";
+const KAGI_REDIRECTS_DELETE_URL: &str = "https://kagi.com/rewrite_rules/delete";
+const KAGI_REDIRECTS_TOGGLE_URL: &str = "https://kagi.com/rewrite_rules/toggle";
 const KAGI_FASTGPT_URL: &str = "https://kagi.com/api/v0/fastgpt";
 const KAGI_ENRICH_WEB_URL: &str = "https://kagi.com/api/v0/enrich/web";
 const KAGI_ENRICH_NEWS_URL: &str = "https://kagi.com/api/v0/enrich/news";
@@ -60,6 +89,11 @@ const ASSISTANT_ZERO_BRANCH_UUID: &str = "00000000-0000-4000-0000-000000000000";
 const TRANSLATE_BOOTSTRAP_MAX_ATTEMPTS: usize = 3;
 const TRANSLATE_BOOTSTRAP_MISSING_COOKIE_ERROR: &str =
     "translate bootstrap did not mint a translate_session cookie";
+const KAGI_LOGGED_OUT_MARKERS: [&str; 3] = [
+    "<title>Kagi Search - A Premium Search Engine</title>",
+    "Welcome to Kagi",
+    "paid search engine that gives power back to the user",
+];
 
 #[derive(Debug, Clone)]
 pub struct NewsFilterRequest {
@@ -493,6 +527,447 @@ pub async fn execute_assistant_thread_export(
     }
 }
 
+pub async fn execute_custom_assistant_list(
+    token: &str,
+) -> Result<Vec<AssistantProfileSummary>, KagiError> {
+    let html = fetch_authenticated_html(
+        KAGI_SETTINGS_ASSISTANT_URL,
+        token,
+        "Assistant settings page",
+    )
+    .await?;
+    parse_assistant_profile_list(&html)
+}
+
+pub async fn execute_custom_assistant_get(
+    target: &str,
+    token: &str,
+) -> Result<AssistantProfileDetails, KagiError> {
+    let assistants = execute_custom_assistant_list(token).await?;
+    let assistant = resolve_custom_assistant_ref(&assistants, target, true)?;
+    let edit_url = assistant.edit_url.clone().ok_or_else(|| {
+        KagiError::Config(format!(
+            "assistant '{}' does not expose an editable custom-assistant form",
+            assistant.name
+        ))
+    })?;
+    let html = fetch_authenticated_html(
+        &absolute_kagi_url(&edit_url),
+        token,
+        "custom assistant form",
+    )
+    .await?;
+    parse_assistant_profile_form(&html)
+}
+
+pub async fn execute_custom_assistant_create(
+    request: &AssistantProfileCreateRequest,
+    token: &str,
+) -> Result<AssistantProfileDetails, KagiError> {
+    let mut details = parse_assistant_profile_form(
+        &fetch_authenticated_html(
+            KAGI_SETTINGS_CUSTOM_ASSISTANT_URL,
+            token,
+            "new custom assistant form",
+        )
+        .await?,
+    )?;
+    details.name = normalize_named_target(&request.name, "assistant name")?;
+    if let Some(value) = trimmed_optional(request.bang_trigger.as_deref()) {
+        details.bang_trigger = Some(value.to_string());
+    }
+    if let Some(value) = request.internet_access {
+        details.internet_access = value;
+    }
+    if let Some(value) = trimmed_optional(request.selected_lens.as_deref()) {
+        details.selected_lens = value.to_string();
+    }
+    if let Some(value) = request.personalizations {
+        details.personalizations = value;
+    }
+    if let Some(value) = trimmed_optional(request.base_model.as_deref()) {
+        details.base_model = value.to_string();
+    }
+    if let Some(value) = request.custom_instructions.as_ref() {
+        details.custom_instructions = value.clone();
+    }
+
+    let (url, _) = post_authenticated_form(
+        KAGI_SETTINGS_CUSTOM_ASSISTANT_UPDATE_URL,
+        &build_custom_assistant_form(&details),
+        token,
+        "custom assistant create",
+    )
+    .await?;
+    let created_id = match url_query_value(&url, "id") {
+        Some(id) => id,
+        None => resolve_custom_assistant_id_by_name(&details.name, token).await?,
+    };
+    execute_custom_assistant_get(&created_id, token).await
+}
+
+pub async fn execute_custom_assistant_update(
+    request: &AssistantProfileUpdateRequest,
+    token: &str,
+) -> Result<AssistantProfileDetails, KagiError> {
+    let assistants = execute_custom_assistant_list(token).await?;
+    let assistant = resolve_custom_assistant_ref(&assistants, &request.target, true)?;
+    let mut details = execute_custom_assistant_get(&assistant.id, token).await?;
+    if let Some(value) = request.name.as_deref() {
+        details.name = normalize_named_target(value, "assistant name")?;
+    }
+    if let Some(value) = request.bang_trigger.as_deref() {
+        details.bang_trigger = trimmed_optional(Some(value)).map(str::to_string);
+    }
+    if let Some(value) = request.internet_access {
+        details.internet_access = value;
+    }
+    if let Some(value) = trimmed_optional(request.selected_lens.as_deref()) {
+        details.selected_lens = value.to_string();
+    }
+    if let Some(value) = request.personalizations {
+        details.personalizations = value;
+    }
+    if let Some(value) = trimmed_optional(request.base_model.as_deref()) {
+        details.base_model = value.to_string();
+    }
+    if let Some(value) = request.custom_instructions.as_ref() {
+        details.custom_instructions = value.clone();
+    }
+
+    post_authenticated_form(
+        KAGI_SETTINGS_CUSTOM_ASSISTANT_UPDATE_URL,
+        &build_custom_assistant_form(&details),
+        token,
+        "custom assistant update",
+    )
+    .await?;
+    execute_custom_assistant_get(&assistant.id, token).await
+}
+
+pub async fn execute_custom_assistant_delete(
+    target: &str,
+    token: &str,
+) -> Result<DeletedResourceResponse, KagiError> {
+    let assistants = execute_custom_assistant_list(token).await?;
+    let assistant = resolve_custom_assistant_ref(&assistants, target, true)?;
+    post_authenticated_form(
+        KAGI_SETTINGS_CUSTOM_ASSISTANT_DELETE_URL,
+        &[("profile_id".to_string(), assistant.id.clone())],
+        token,
+        "custom assistant delete",
+    )
+    .await?;
+    Ok(DeletedResourceResponse {
+        id: assistant.id.clone(),
+    })
+}
+
+pub async fn execute_lens_list(token: &str) -> Result<Vec<LensSummary>, KagiError> {
+    let html =
+        fetch_authenticated_html(KAGI_SETTINGS_LENSES_URL, token, "lens settings page").await?;
+    parse_lens_list(&html)
+}
+
+pub async fn execute_lens_get(target: &str, token: &str) -> Result<LensDetails, KagiError> {
+    let lenses = execute_lens_list(token).await?;
+    let lens = resolve_lens_ref(&lenses, target)?;
+    let html =
+        fetch_authenticated_html(&absolute_kagi_url(&lens.edit_url), token, "lens form").await?;
+    parse_lens_form(&html)
+}
+
+pub async fn execute_lens_create(
+    request: &LensCreateRequest,
+    token: &str,
+) -> Result<LensDetails, KagiError> {
+    let mut details = parse_lens_form(
+        &fetch_authenticated_html(KAGI_SETTINGS_CREATE_LENS_URL, token, "new lens form").await?,
+    )?;
+    apply_lens_create_request(&mut details, request)?;
+
+    let (url, _) = post_authenticated_form(
+        KAGI_LENSES_CREATE_URL,
+        &build_lens_form(&details),
+        token,
+        "lens create",
+    )
+    .await?;
+    let created_id = match url_query_value(&url, "id") {
+        Some(id) => id,
+        None => resolve_lens_id_by_name(&details.name, token).await?,
+    };
+    execute_lens_get(&created_id, token).await
+}
+
+pub async fn execute_lens_update(
+    request: &LensUpdateRequest,
+    token: &str,
+) -> Result<LensDetails, KagiError> {
+    let lenses = execute_lens_list(token).await?;
+    let lens = resolve_lens_ref(&lenses, &request.target)?;
+    let mut details = execute_lens_get(&lens.id, token).await?;
+    apply_lens_update_request(&mut details, request)?;
+
+    post_authenticated_form(
+        KAGI_LENSES_UPDATE_URL,
+        &build_lens_form(&details),
+        token,
+        "lens update",
+    )
+    .await?;
+    execute_lens_get(&lens.id, token).await
+}
+
+pub async fn execute_lens_delete(
+    target: &str,
+    token: &str,
+) -> Result<DeletedResourceResponse, KagiError> {
+    let lenses = execute_lens_list(token).await?;
+    let lens = resolve_lens_ref(&lenses, target)?;
+    post_authenticated_form(
+        KAGI_LENSES_DELETE_URL,
+        &[("id".to_string(), lens.id.clone())],
+        token,
+        "lens delete",
+    )
+    .await?;
+    Ok(DeletedResourceResponse {
+        id: lens.id.clone(),
+    })
+}
+
+pub async fn execute_lens_set_enabled(
+    target: &str,
+    enabled: bool,
+    token: &str,
+) -> Result<ToggleResourceResponse, KagiError> {
+    let lenses = execute_lens_list(token).await?;
+    let lens = resolve_lens_ref(&lenses, target)?;
+    if lens.enabled == enabled {
+        return Ok(ToggleResourceResponse {
+            id: lens.id.clone(),
+            enabled: lens.enabled,
+        });
+    }
+
+    post_authenticated_form(
+        KAGI_LENSES_SUBSCRIBE_URL,
+        &[
+            ("lens_id".to_string(), lens.id.clone()),
+            (lens.toggle_field.clone(), lens.toggle_value.clone()),
+        ],
+        token,
+        if enabled { "lens enable" } else { "lens disable" },
+    )
+    .await?;
+
+    let refreshed = execute_lens_list(token).await?;
+    let lens = resolve_lens_ref(&refreshed, &lens.id)?;
+    Ok(ToggleResourceResponse {
+        id: lens.id.clone(),
+        enabled: lens.enabled,
+    })
+}
+
+pub async fn execute_custom_bang_list(token: &str) -> Result<Vec<CustomBangSummary>, KagiError> {
+    let html =
+        fetch_authenticated_html(KAGI_SETTINGS_CUSTOM_BANGS_URL, token, "custom bangs page")
+            .await?;
+    parse_custom_bang_list(&html)
+}
+
+pub async fn execute_custom_bang_get(
+    target: &str,
+    token: &str,
+) -> Result<CustomBangDetails, KagiError> {
+    let bangs = execute_custom_bang_list(token).await?;
+    let bang = resolve_custom_bang_ref(&bangs, target)?;
+    let html = fetch_authenticated_html(
+        &absolute_kagi_url(&bang.edit_url),
+        token,
+        "custom bang form",
+    )
+    .await?;
+    parse_custom_bang_form(&html)
+}
+
+pub async fn execute_custom_bang_create(
+    request: &CustomBangCreateRequest,
+    token: &str,
+) -> Result<CustomBangDetails, KagiError> {
+    let mut details = parse_custom_bang_form(
+        &fetch_authenticated_html(KAGI_SETTINGS_CUSTOM_BANG_FORM_URL, token, "new custom bang form")
+            .await?,
+    )?;
+    apply_custom_bang_create_request(&mut details, request)?;
+
+    let (url, _) = post_authenticated_form(
+        KAGI_CUSTOM_BANGS_MODIFY_URL,
+        &build_custom_bang_form(&details, false),
+        token,
+        "custom bang create",
+    )
+    .await?;
+    let created_id = match url_query_value(&url, "bang_id") {
+        Some(id) => id,
+        None => resolve_custom_bang_id_by_trigger(&details.trigger, token).await?,
+    };
+    execute_custom_bang_get(&created_id, token).await
+}
+
+pub async fn execute_custom_bang_update(
+    request: &CustomBangUpdateRequest,
+    token: &str,
+) -> Result<CustomBangDetails, KagiError> {
+    let bangs = execute_custom_bang_list(token).await?;
+    let bang = resolve_custom_bang_ref(&bangs, &request.target)?;
+    let mut details = execute_custom_bang_get(&bang.id, token).await?;
+    apply_custom_bang_update_request(&mut details, request)?;
+
+    post_authenticated_form(
+        KAGI_CUSTOM_BANGS_MODIFY_URL,
+        &build_custom_bang_form(&details, false),
+        token,
+        "custom bang update",
+    )
+    .await?;
+    execute_custom_bang_get(&bang.id, token).await
+}
+
+pub async fn execute_custom_bang_delete(
+    target: &str,
+    token: &str,
+) -> Result<DeletedResourceResponse, KagiError> {
+    let bangs = execute_custom_bang_list(token).await?;
+    let bang = resolve_custom_bang_ref(&bangs, target)?;
+    let details = execute_custom_bang_get(&bang.id, token).await?;
+
+    post_authenticated_form(
+        KAGI_CUSTOM_BANGS_MODIFY_URL,
+        &build_custom_bang_form(&details, true),
+        token,
+        "custom bang delete",
+    )
+    .await?;
+    Ok(DeletedResourceResponse {
+        id: bang.id.clone(),
+    })
+}
+
+pub async fn execute_redirect_list(token: &str) -> Result<Vec<RedirectRuleSummary>, KagiError> {
+    let html =
+        fetch_authenticated_html(KAGI_SETTINGS_REDIRECTS_URL, token, "redirects page").await?;
+    parse_redirect_list(&html)
+}
+
+pub async fn execute_redirect_get(
+    target: &str,
+    token: &str,
+) -> Result<RedirectRuleDetails, KagiError> {
+    let redirects = execute_redirect_list(token).await?;
+    let redirect = resolve_redirect_ref(&redirects, target)?;
+    let html = fetch_authenticated_html(
+        &absolute_kagi_url(&redirect.edit_url),
+        token,
+        "redirect form",
+    )
+    .await?;
+    let mut details = parse_redirect_form(&html)?;
+    details.enabled = Some(redirect.enabled);
+    Ok(details)
+}
+
+pub async fn execute_redirect_create(
+    request: &RedirectRuleCreateRequest,
+    token: &str,
+) -> Result<RedirectRuleDetails, KagiError> {
+    let rule = normalize_redirect_rule(&request.rule)?;
+    let (url, _) = post_authenticated_form(
+        KAGI_REDIRECTS_CREATE_UPDATE_URL,
+        &[("regex".to_string(), rule.clone())],
+        token,
+        "redirect create",
+    )
+    .await?;
+    if let Some(created_id) = url_query_value(&url, "rule_id") {
+        return execute_redirect_get(&created_id, token).await;
+    }
+    execute_redirect_get(&rule, token).await
+}
+
+pub async fn execute_redirect_update(
+    request: &RedirectRuleUpdateRequest,
+    token: &str,
+) -> Result<RedirectRuleDetails, KagiError> {
+    let redirects = execute_redirect_list(token).await?;
+    let redirect = resolve_redirect_ref(&redirects, &request.target)?;
+    let rule = normalize_redirect_rule(&request.rule)?;
+    post_authenticated_form(
+        KAGI_REDIRECTS_CREATE_UPDATE_URL,
+        &[
+            ("rule_id".to_string(), redirect.id.clone()),
+            ("regex".to_string(), rule),
+        ],
+        token,
+        "redirect update",
+    )
+    .await?;
+    execute_redirect_get(&redirect.id, token).await
+}
+
+pub async fn execute_redirect_delete(
+    target: &str,
+    token: &str,
+) -> Result<DeletedResourceResponse, KagiError> {
+    let redirects = execute_redirect_list(token).await?;
+    let redirect = resolve_redirect_ref(&redirects, target)?;
+    post_authenticated_form(
+        KAGI_REDIRECTS_DELETE_URL,
+        &[("rule_id".to_string(), redirect.id.clone())],
+        token,
+        "redirect delete",
+    )
+    .await?;
+    Ok(DeletedResourceResponse {
+        id: redirect.id.clone(),
+    })
+}
+
+pub async fn execute_redirect_set_enabled(
+    target: &str,
+    enabled: bool,
+    token: &str,
+) -> Result<ToggleResourceResponse, KagiError> {
+    let redirects = execute_redirect_list(token).await?;
+    let redirect = resolve_redirect_ref(&redirects, target)?;
+    if redirect.enabled == enabled {
+        return Ok(ToggleResourceResponse {
+            id: redirect.id.clone(),
+            enabled: redirect.enabled,
+        });
+    }
+
+    post_authenticated_form(
+        KAGI_REDIRECTS_TOGGLE_URL,
+        &[("rule_id".to_string(), redirect.id.clone())],
+        token,
+        if enabled {
+            "redirect enable"
+        } else {
+            "redirect disable"
+        },
+    )
+    .await?;
+
+    let refreshed = execute_redirect_list(token).await?;
+    let redirect = resolve_redirect_ref(&refreshed, &redirect.id)?;
+    Ok(ToggleResourceResponse {
+        id: redirect.id.clone(),
+        enabled: redirect.enabled,
+    })
+}
+
 pub async fn execute_ask_page(
     request: &AskPageRequest,
     token: &str,
@@ -503,6 +978,7 @@ pub async fn execute_ask_page(
         &AssistantPromptRequest {
             query: build_ask_page_prompt(&source_url, &question),
             thread_id: None,
+            profile_id: None,
             model: None,
             lens_id: None,
             internet_access: None,
@@ -1421,8 +1897,595 @@ fn normalize_assistant_thread_id(raw: Option<&str>) -> Result<Option<String>, Ka
     }
 }
 
+fn normalize_named_target(raw: &str, label: &str) -> Result<String, KagiError> {
+    let normalized = raw.trim();
+    if normalized.is_empty() {
+        return Err(KagiError::Config(format!("{label} cannot be empty")));
+    }
+
+    Ok(normalized.to_string())
+}
+
+fn normalize_custom_bang_trigger(raw: &str) -> Result<String, KagiError> {
+    let normalized = raw.trim().trim_start_matches('!').trim();
+    if normalized.is_empty() {
+        return Err(KagiError::Config(
+            "custom bang trigger cannot be empty".to_string(),
+        ));
+    }
+
+    Ok(normalized.to_string())
+}
+
+fn normalize_redirect_rule(raw: &str) -> Result<String, KagiError> {
+    let normalized = raw.trim();
+    if normalized.is_empty() {
+        return Err(KagiError::Config(
+            "redirect rule cannot be empty".to_string(),
+        ));
+    }
+    if !normalized.contains('|') {
+        return Err(KagiError::Config(
+            "redirect rule must use the form regex|replacement".to_string(),
+        ));
+    }
+
+    Ok(normalized.to_string())
+}
+
+fn trimmed_optional(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn normalize_optional_form_value(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("none") {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+fn absolute_kagi_url(path: &str) -> String {
+    if path.starts_with("http://") || path.starts_with("https://") {
+        path.to_string()
+    } else {
+        format!("https://kagi.com{path}")
+    }
+}
+
+fn url_query_value(url: &Url, key: &str) -> Option<String> {
+    url.query_pairs()
+        .find(|(candidate, _)| candidate == key)
+        .map(|(_, value)| value.into_owned())
+}
+
+fn build_custom_assistant_form(details: &AssistantProfileDetails) -> Vec<(String, String)> {
+    vec![
+        (
+            "profile_id".to_string(),
+            details.profile_id.clone().unwrap_or_default(),
+        ),
+        ("name".to_string(), details.name.clone()),
+        (
+            "bang_trigger".to_string(),
+            details.bang_trigger.clone().unwrap_or_default(),
+        ),
+        (
+            "internet_access".to_string(),
+            if details.internet_access {
+                "on".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+        ("selected_lens".to_string(), details.selected_lens.clone()),
+        (
+            "personalizations".to_string(),
+            if details.personalizations {
+                "on".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+        ("base_model".to_string(), details.base_model.clone()),
+        (
+            "custom_instructions".to_string(),
+            details.custom_instructions.clone(),
+        ),
+    ]
+}
+
+fn build_lens_form(details: &LensDetails) -> Vec<(String, String)> {
+    let mut form = vec![
+        ("name".to_string(), details.name.clone()),
+        ("included_sites".to_string(), details.included_sites.clone()),
+        (
+            "included_keywords".to_string(),
+            details.included_keywords.clone(),
+        ),
+        ("description".to_string(), details.description.clone()),
+        ("search_region".to_string(), details.search_region.clone()),
+        (
+            "date_range".to_string(),
+            if details.before_time.is_some() || details.after_time.is_some() {
+                "0".to_string()
+            } else {
+                "0".to_string()
+            },
+        ),
+        (
+            "before_time".to_string(),
+            details.before_time.clone().unwrap_or_default(),
+        ),
+        (
+            "after_time".to_string(),
+            details.after_time.clone().unwrap_or_default(),
+        ),
+        ("excluded_sites".to_string(), details.excluded_sites.clone()),
+        (
+            "excluded_keywords".to_string(),
+            details.excluded_keywords.clone(),
+        ),
+        (
+            "shortcut_keyword".to_string(),
+            details.shortcut_keyword.clone(),
+        ),
+        (
+            "autocomplete_keywords".to_string(),
+            if details.autocomplete_keywords {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+        ("template".to_string(), details.template.clone()),
+        ("file_type".to_string(), details.file_type.clone()),
+        (
+            "share_with_team".to_string(),
+            if details.share_with_team {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+        (
+            "share_copy_code".to_string(),
+            if details.share_copy_code {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+    ];
+
+    if let Some(id) = details.id.as_ref() {
+        form.push(("id".to_string(), id.clone()));
+    }
+
+    form
+}
+
+fn build_custom_bang_form(
+    details: &CustomBangDetails,
+    delete: bool,
+) -> Vec<(String, String)> {
+    let mut form = Vec::new();
+    if let Some(id) = details.bang_id.as_ref() {
+        form.push(("bang_id".to_string(), id.clone()));
+    }
+    if delete {
+        form.push(("delete".to_string(), "1".to_string()));
+        return form;
+    }
+
+    form.extend([
+        ("name".to_string(), details.name.clone()),
+        ("trigger".to_string(), details.trigger.clone()),
+        ("template".to_string(), details.template.clone()),
+        ("snap_domain".to_string(), details.snap_domain.clone()),
+        ("regex_pattern".to_string(), details.regex_pattern.clone()),
+        (
+            "shortcut_menu".to_string(),
+            if details.shortcut_menu {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+        (
+            "fmt_open_snap_domain".to_string(),
+            if details.fmt_open_snap_domain {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+        (
+            "fmt_open_base_path".to_string(),
+            if details.fmt_open_base_path {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+        (
+            "fmt_url_encode_placeholder".to_string(),
+            if details.fmt_url_encode_placeholder {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+        (
+            "fmt_url_encode_space_to_plus".to_string(),
+            if details.fmt_url_encode_space_to_plus {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+        ),
+    ]);
+
+    form
+}
+
+fn apply_lens_create_request(
+    details: &mut LensDetails,
+    request: &LensCreateRequest,
+) -> Result<(), KagiError> {
+    details.name = normalize_named_target(&request.name, "lens name")?;
+    if let Some(value) = request.included_sites.as_ref() {
+        details.included_sites = value.clone();
+    }
+    if let Some(value) = request.included_keywords.as_ref() {
+        details.included_keywords = value.clone();
+    }
+    if let Some(value) = request.description.as_ref() {
+        details.description = value.clone();
+    }
+    if let Some(value) = trimmed_optional(request.search_region.as_deref()) {
+        details.search_region = value.to_string();
+    }
+    if let Some(value) = request.before_time.as_ref() {
+        details.before_time = normalize_optional_form_value(Some(value.clone()));
+    }
+    if let Some(value) = request.after_time.as_ref() {
+        details.after_time = normalize_optional_form_value(Some(value.clone()));
+    }
+    if let Some(value) = request.excluded_sites.as_ref() {
+        details.excluded_sites = value.clone();
+    }
+    if let Some(value) = request.excluded_keywords.as_ref() {
+        details.excluded_keywords = value.clone();
+    }
+    if let Some(value) = request.shortcut_keyword.as_ref() {
+        details.shortcut_keyword = value.clone();
+    }
+    if let Some(value) = request.autocomplete_keywords {
+        details.autocomplete_keywords = value;
+    }
+    if let Some(value) = request.template.as_ref() {
+        details.template = value.clone();
+    }
+    if let Some(value) = request.file_type.as_ref() {
+        details.file_type = value.clone();
+    }
+    if let Some(value) = request.share_with_team {
+        details.share_with_team = value;
+    }
+    if let Some(value) = request.share_copy_code {
+        details.share_copy_code = value;
+    }
+
+    Ok(())
+}
+
+fn apply_lens_update_request(
+    details: &mut LensDetails,
+    request: &LensUpdateRequest,
+) -> Result<(), KagiError> {
+    if let Some(value) = request.name.as_deref() {
+        details.name = normalize_named_target(value, "lens name")?;
+    }
+    if let Some(value) = request.included_sites.as_ref() {
+        details.included_sites = value.clone();
+    }
+    if let Some(value) = request.included_keywords.as_ref() {
+        details.included_keywords = value.clone();
+    }
+    if let Some(value) = request.description.as_ref() {
+        details.description = value.clone();
+    }
+    if let Some(value) = trimmed_optional(request.search_region.as_deref()) {
+        details.search_region = value.to_string();
+    }
+    if let Some(value) = request.before_time.as_ref() {
+        details.before_time = normalize_optional_form_value(Some(value.clone()));
+    }
+    if let Some(value) = request.after_time.as_ref() {
+        details.after_time = normalize_optional_form_value(Some(value.clone()));
+    }
+    if let Some(value) = request.excluded_sites.as_ref() {
+        details.excluded_sites = value.clone();
+    }
+    if let Some(value) = request.excluded_keywords.as_ref() {
+        details.excluded_keywords = value.clone();
+    }
+    if let Some(value) = request.shortcut_keyword.as_ref() {
+        details.shortcut_keyword = value.clone();
+    }
+    if let Some(value) = request.autocomplete_keywords {
+        details.autocomplete_keywords = value;
+    }
+    if let Some(value) = request.template.as_ref() {
+        details.template = value.clone();
+    }
+    if let Some(value) = request.file_type.as_ref() {
+        details.file_type = value.clone();
+    }
+    if let Some(value) = request.share_with_team {
+        details.share_with_team = value;
+    }
+    if let Some(value) = request.share_copy_code {
+        details.share_copy_code = value;
+    }
+
+    Ok(())
+}
+
+fn apply_custom_bang_create_request(
+    details: &mut CustomBangDetails,
+    request: &CustomBangCreateRequest,
+) -> Result<(), KagiError> {
+    details.name = normalize_named_target(&request.name, "custom bang name")?;
+    details.trigger = normalize_custom_bang_trigger(&request.trigger)?;
+    if let Some(value) = request.template.as_ref() {
+        details.template = value.clone();
+    }
+    if let Some(value) = request.snap_domain.as_ref() {
+        details.snap_domain = value.clone();
+    }
+    if let Some(value) = request.regex_pattern.as_ref() {
+        details.regex_pattern = value.clone();
+    }
+    if let Some(value) = request.shortcut_menu {
+        details.shortcut_menu = value;
+    }
+    if let Some(value) = request.fmt_open_snap_domain {
+        details.fmt_open_snap_domain = value;
+    }
+    if let Some(value) = request.fmt_open_base_path {
+        details.fmt_open_base_path = value;
+    }
+    if let Some(value) = request.fmt_url_encode_placeholder {
+        details.fmt_url_encode_placeholder = value;
+    }
+    if let Some(value) = request.fmt_url_encode_space_to_plus {
+        details.fmt_url_encode_space_to_plus = value;
+    }
+
+    Ok(())
+}
+
+fn apply_custom_bang_update_request(
+    details: &mut CustomBangDetails,
+    request: &CustomBangUpdateRequest,
+) -> Result<(), KagiError> {
+    if let Some(value) = request.name.as_deref() {
+        details.name = normalize_named_target(value, "custom bang name")?;
+    }
+    if let Some(value) = request.trigger.as_deref() {
+        details.trigger = normalize_custom_bang_trigger(value)?;
+    }
+    if let Some(value) = request.template.as_ref() {
+        details.template = value.clone();
+    }
+    if let Some(value) = request.snap_domain.as_ref() {
+        details.snap_domain = value.clone();
+    }
+    if let Some(value) = request.regex_pattern.as_ref() {
+        details.regex_pattern = value.clone();
+    }
+    if let Some(value) = request.shortcut_menu {
+        details.shortcut_menu = value;
+    }
+    if let Some(value) = request.fmt_open_snap_domain {
+        details.fmt_open_snap_domain = value;
+    }
+    if let Some(value) = request.fmt_open_base_path {
+        details.fmt_open_base_path = value;
+    }
+    if let Some(value) = request.fmt_url_encode_placeholder {
+        details.fmt_url_encode_placeholder = value;
+    }
+    if let Some(value) = request.fmt_url_encode_space_to_plus {
+        details.fmt_url_encode_space_to_plus = value;
+    }
+
+    Ok(())
+}
+
+fn resolve_custom_assistant_ref<'a>(
+    assistants: &'a [AssistantProfileSummary],
+    target: &str,
+    require_editable: bool,
+) -> Result<&'a AssistantProfileSummary, KagiError> {
+    let target = normalize_named_target(target, "assistant target")?;
+    let assistant = assistants
+        .iter()
+        .find(|assistant| {
+            assistant.id == target || assistant.invoke_profile.eq_ignore_ascii_case(&target)
+        })
+        .or_else(|| {
+            let matches = assistants
+                .iter()
+                .filter(|assistant| assistant.name.eq_ignore_ascii_case(&target))
+                .collect::<Vec<_>>();
+            if matches.len() == 1 {
+                matches.into_iter().next()
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| KagiError::Config(format!("no assistant matched '{target}'")))?;
+
+    if require_editable && assistant.edit_url.is_none() {
+        return Err(KagiError::Config(format!(
+            "assistant '{}' is built in and cannot be modified through custom-assistant commands",
+            assistant.name
+        )));
+    }
+
+    Ok(assistant)
+}
+
+fn resolve_lens_ref<'a>(lenses: &'a [LensSummary], target: &str) -> Result<&'a LensSummary, KagiError> {
+    let target = normalize_named_target(target, "lens target")?;
+    lenses
+        .iter()
+        .find(|lens| lens.id == target || lens.name.eq_ignore_ascii_case(&target))
+        .ok_or_else(|| KagiError::Config(format!("no lens matched '{target}'")))
+}
+
+fn resolve_custom_bang_ref<'a>(
+    bangs: &'a [CustomBangSummary],
+    target: &str,
+) -> Result<&'a CustomBangSummary, KagiError> {
+    let target = normalize_named_target(target, "custom bang target")?;
+    let normalized_trigger = target.trim_start_matches('!');
+    bangs
+        .iter()
+        .find(|bang| {
+            bang.id == target
+                || bang.name.eq_ignore_ascii_case(&target)
+                || bang
+                    .trigger
+                    .trim_start_matches('!')
+                    .eq_ignore_ascii_case(normalized_trigger)
+        })
+        .ok_or_else(|| KagiError::Config(format!("no custom bang matched '{target}'")))
+}
+
+fn resolve_redirect_ref<'a>(
+    redirects: &'a [RedirectRuleSummary],
+    target: &str,
+) -> Result<&'a RedirectRuleSummary, KagiError> {
+    let target = normalize_named_target(target, "redirect target")?;
+    redirects
+        .iter()
+        .find(|redirect| redirect.id == target || redirect.rule == target)
+        .ok_or_else(|| KagiError::Config(format!("no redirect matched '{target}'")))
+}
+
+async fn resolve_custom_assistant_id_by_name(name: &str, token: &str) -> Result<String, KagiError> {
+    let assistants = execute_custom_assistant_list(token).await?;
+    resolve_custom_assistant_ref(&assistants, name, true).map(|assistant| assistant.id.clone())
+}
+
+async fn resolve_lens_id_by_name(name: &str, token: &str) -> Result<String, KagiError> {
+    let lenses = execute_lens_list(token).await?;
+    resolve_lens_ref(&lenses, name).map(|lens| lens.id.clone())
+}
+
+async fn resolve_custom_bang_id_by_trigger(
+    trigger: &str,
+    token: &str,
+) -> Result<String, KagiError> {
+    let bangs = execute_custom_bang_list(token).await?;
+    resolve_custom_bang_ref(&bangs, trigger).map(|bang| bang.id.clone())
+}
+
+async fn fetch_authenticated_html(
+    url: &str,
+    token: &str,
+    surface: &str,
+) -> Result<String, KagiError> {
+    let client = build_client()?;
+    let response = client
+        .get(url)
+        .header(header::COOKIE, format!("kagi_session={token}"))
+        .send()
+        .await
+        .map_err(map_transport_error)?;
+    let (_, body) = read_authenticated_html_response(response, surface).await?;
+    Ok(body)
+}
+
+async fn post_authenticated_form(
+    url: &str,
+    form: &[(String, String)],
+    token: &str,
+    surface: &str,
+) -> Result<(Url, String), KagiError> {
+    let client = build_client()?;
+    let response = client
+        .post(url)
+        .header(header::COOKIE, format!("kagi_session={token}"))
+        .form(form)
+        .send()
+        .await
+        .map_err(map_transport_error)?;
+    read_authenticated_html_response(response, surface).await
+}
+
+async fn read_authenticated_html_response(
+    response: reqwest::Response,
+    surface: &str,
+) -> Result<(Url, String), KagiError> {
+    let status = response.status();
+    let final_url = response.url().clone();
+
+    match status {
+        status if status.is_success() => {
+            let body = response.text().await.map_err(|error| {
+                KagiError::Network(format!("failed to read {surface} response body: {error}"))
+            })?;
+            if looks_like_logged_out_page(&body) {
+                return Err(KagiError::Auth(
+                    "invalid or expired Kagi session token".to_string(),
+                ));
+            }
+            Ok((final_url, body))
+        }
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Err(KagiError::Auth(
+            "invalid or expired Kagi session token".to_string(),
+        )),
+        status if status.is_client_error() => {
+            let body = response.text().await.unwrap_or_else(|_| String::new());
+            Err(KagiError::Config(format!(
+                "Kagi {surface} request rejected: HTTP {status}{}",
+                format_client_error_suffix(&body)
+            )))
+        }
+        status if status.is_server_error() => Err(KagiError::Network(format!(
+            "Kagi {surface} server error: HTTP {status}"
+        ))),
+        status => Err(KagiError::Network(format!(
+            "unexpected Kagi {surface} response status: HTTP {status}"
+        ))),
+    }
+}
+
+fn looks_like_logged_out_page(body: &str) -> bool {
+    KAGI_LOGGED_OUT_MARKERS
+        .iter()
+        .all(|marker| body.contains(marker))
+}
+
 fn assistant_profile_payload(request: &AssistantPromptRequest) -> Value {
     let mut payload = serde_json::Map::new();
+
+    if let Some(profile_id) = request
+        .profile_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        payload.insert("id".to_string(), Value::String(profile_id.to_string()));
+    }
 
     if let Some(model) = request
         .model
@@ -2544,26 +3607,37 @@ mod tests {
         effective_translate_source_language, execute_news_filter_presets, extract_set_cookie_value,
         fake_header_map, finalize_translate_text_response, normalize_ask_page_question,
         normalize_ask_page_url, normalize_assistant_query, normalize_assistant_thread_id,
-        normalize_aux_quality, normalize_subscriber_summary_input,
-        normalize_subscriber_summary_length, normalize_subscriber_summary_type,
-        parse_assistant_prompt_stream, parse_assistant_thread_delete_stream,
-        parse_assistant_thread_list_stream, parse_assistant_thread_open_stream,
-        parse_content_disposition_filename, parse_subscriber_summarize_stream,
-        parse_translate_detect_value, resolve_news_category, resolve_translate_bootstrap,
-        should_retry_translate_bootstrap, text_contains_news_filter_keyword,
-        validate_translate_request,
+        normalize_aux_quality, normalize_custom_bang_trigger, normalize_redirect_rule,
+        normalize_subscriber_summary_input, normalize_subscriber_summary_length,
+        normalize_subscriber_summary_type, parse_assistant_prompt_stream,
+        parse_assistant_thread_delete_stream, parse_assistant_thread_list_stream,
+        parse_assistant_thread_open_stream, parse_content_disposition_filename,
+        parse_subscriber_summarize_stream, parse_translate_detect_value, resolve_custom_bang_ref,
+        resolve_custom_assistant_ref, resolve_lens_ref, resolve_news_category,
+        resolve_redirect_ref, resolve_translate_bootstrap, should_retry_translate_bootstrap,
+        text_contains_news_filter_keyword, validate_translate_request,
     };
     use crate::api::{
         execute_assistant_prompt, execute_assistant_thread_delete, execute_assistant_thread_export,
-        execute_assistant_thread_get, execute_assistant_thread_list,
+        execute_assistant_thread_get, execute_assistant_thread_list, execute_custom_assistant_create,
+        execute_custom_assistant_delete, execute_custom_assistant_get, execute_custom_assistant_list,
+        execute_custom_assistant_update, execute_custom_bang_create, execute_custom_bang_delete,
+        execute_custom_bang_get, execute_custom_bang_update, execute_lens_create,
+        execute_lens_delete, execute_lens_set_enabled, execute_lens_update,
+        execute_redirect_create, execute_redirect_delete, execute_redirect_list,
+        execute_redirect_set_enabled, execute_redirect_update,
     };
     use crate::auth::{SESSION_TOKEN_ENV, load_credential_inventory, normalize_session_token};
     use crate::cli::{NewsFilterMode, NewsFilterScope};
     use crate::error::KagiError;
     use crate::types::{AskPageRequest, SubscriberSummarizeRequest};
     use crate::types::{
-        AssistantPromptRequest, FastGptAnswer, NewsBatchCategory, NewsCategoryMetadata, Reference,
-        Summarization, TranslateCommandRequest, TranslateDetectedLanguage, TranslateTextResponse,
+        AssistantProfileCreateRequest, AssistantProfileSummary, AssistantProfileUpdateRequest,
+        AssistantPromptRequest, CustomBangCreateRequest, CustomBangSummary,
+        CustomBangUpdateRequest, FastGptAnswer, LensCreateRequest, LensSummary, LensUpdateRequest,
+        NewsBatchCategory, NewsCategoryMetadata, RedirectRuleCreateRequest, RedirectRuleSummary,
+        RedirectRuleUpdateRequest, Reference, Summarization, TranslateCommandRequest,
+        TranslateDetectedLanguage, TranslateTextResponse,
     };
     use reqwest::StatusCode;
     use serde_json::{Value, json};
@@ -3002,6 +4076,95 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_custom_bang_trigger_and_redirect_rule() {
+        assert_eq!(
+            normalize_custom_bang_trigger(" !gh ").expect("trigger should normalize"),
+            "gh"
+        );
+        assert_eq!(
+            normalize_redirect_rule("^https://a|https://b").expect("rule should normalize"),
+            "^https://a|https://b"
+        );
+        assert!(normalize_custom_bang_trigger("   ").is_err());
+        assert!(normalize_redirect_rule("https://a").is_err());
+    }
+
+    #[test]
+    fn resolves_new_resource_refs_by_expected_keys() {
+        let assistants = vec![
+            AssistantProfileSummary {
+                id: "built-in".to_string(),
+                name: "Code".to_string(),
+                invoke_profile: "code".to_string(),
+                model: "Quick".to_string(),
+                bang_trigger: None,
+                internet_access: true,
+                built_in: true,
+                edit_url: None,
+            },
+            AssistantProfileSummary {
+                id: "custom-1".to_string(),
+                name: "Writer".to_string(),
+                invoke_profile: "custom-1".to_string(),
+                model: "GPT 5 Mini".to_string(),
+                bang_trigger: Some("!write".to_string()),
+                internet_access: false,
+                built_in: false,
+                edit_url: Some("/settings/custom_assistant?id=custom-1".to_string()),
+            },
+        ];
+        let lenses = vec![LensSummary {
+            id: "22524".to_string(),
+            name: "Reddit".to_string(),
+            description: None,
+            enabled: true,
+            position: Some(0),
+            edit_url: "/settings/update_lens?id=22524".to_string(),
+            toggle_field: "active_index".to_string(),
+            toggle_value: "0".to_string(),
+        }];
+        let bangs = vec![CustomBangSummary {
+            id: "1".to_string(),
+            name: "Google".to_string(),
+            trigger: "!g".to_string(),
+            shortcut_menu: true,
+            edit_url: "/settings/custom_bangs_form?bang_id=1".to_string(),
+        }];
+        let redirects = vec![RedirectRuleSummary {
+            id: "16641".to_string(),
+            rule: "^https://www.reddit.com|https://old.reddit.com".to_string(),
+            enabled: true,
+            edit_url: "/settings/redirects_form?rule_id=16641".to_string(),
+        }];
+
+        assert_eq!(
+            resolve_custom_assistant_ref(&assistants, "code", false)
+                .expect("built-in assistant should resolve")
+                .id,
+            "built-in"
+        );
+        assert!(resolve_custom_assistant_ref(&assistants, "Code", true).is_err());
+        assert_eq!(
+            resolve_lens_ref(&lenses, "Reddit")
+                .expect("lens should resolve")
+                .id,
+            "22524"
+        );
+        assert_eq!(
+            resolve_custom_bang_ref(&bangs, "g")
+                .expect("bang should resolve")
+                .id,
+            "1"
+        );
+        assert_eq!(
+            resolve_redirect_ref(&redirects, "^https://www.reddit.com|https://old.reddit.com")
+                .expect("redirect should resolve")
+                .id,
+            "16641"
+        );
+    }
+
+    #[test]
     fn parses_assistant_thread_open_stream() {
         let raw = concat!(
             "hi:{\"v\":\"202603171911.stage.707e740\",\"trace\":\"trace-open\"}\0\n",
@@ -3079,6 +4242,7 @@ mod tests {
         let request = AssistantPromptRequest {
             query: format!("Reply with exactly: assistant-v2-smoke-{}", live_nonce()),
             thread_id: None,
+            profile_id: None,
             model: Some("gpt-5-mini".to_string()),
             lens_id: None,
             internet_access: Some(true),
@@ -3121,6 +4285,305 @@ mod tests {
             .await
             .expect("assistant thread delete should succeed");
         assert_eq!(deleted.deleted_thread_ids, vec![thread_id]);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live KAGI_SESSION_TOKEN and mutates custom assistants"]
+    async fn live_custom_assistant_crud_roundtrip() {
+        let Some(token) = live_session_token() else {
+            eprintln!("skipping live assistant custom test because {SESSION_TOKEN_ENV} is not set");
+            return;
+        };
+
+        let nonce = live_nonce();
+        let name = format!("codex-assistant-{nonce}");
+        let updated_name = format!("{name}-updated");
+        let bang = format!("ca{nonce}");
+
+        let created = execute_custom_assistant_create(
+            &AssistantProfileCreateRequest {
+                name: name.clone(),
+                bang_trigger: Some(bang.clone()),
+                internet_access: Some(false),
+                selected_lens: Some("0".to_string()),
+                personalizations: Some(false),
+                base_model: Some("gpt-5-mini".to_string()),
+                custom_instructions: Some("Reply in exactly one sentence.".to_string()),
+            },
+            &token,
+        )
+        .await
+        .expect("custom assistant create should succeed");
+
+        let created_id = created.profile_id.clone().expect("created assistant should have id");
+        assert_eq!(created.name, name);
+        assert_eq!(created.bang_trigger.as_deref(), Some(bang.as_str()));
+        assert!(!created.internet_access);
+
+        let listed = execute_custom_assistant_list(&token)
+            .await
+            .expect("custom assistant list should succeed");
+        assert!(listed.iter().any(|assistant| assistant.id == created_id));
+
+        let fetched = execute_custom_assistant_get(&created_id, &token)
+            .await
+            .expect("custom assistant get should succeed");
+        assert_eq!(fetched.base_model, "gpt-5-mini");
+
+        let prompt = execute_assistant_prompt(
+            &AssistantPromptRequest {
+                query: "Reply with exactly: custom-assistant-smoke".to_string(),
+                thread_id: None,
+                profile_id: Some(created_id.clone()),
+                model: None,
+                lens_id: None,
+                internet_access: None,
+                personalizations: None,
+            },
+            &token,
+        )
+        .await
+        .expect("assistant prompt with saved assistant should succeed");
+        assert_eq!(prompt.message.state, "done");
+
+        let updated = execute_custom_assistant_update(
+            &AssistantProfileUpdateRequest {
+                target: created_id.clone(),
+                name: Some(updated_name.clone()),
+                bang_trigger: None,
+                internet_access: Some(true),
+                selected_lens: Some("22524".to_string()),
+                personalizations: Some(true),
+                base_model: Some("gpt-5-mini".to_string()),
+                custom_instructions: Some("Use bullet points when useful.".to_string()),
+            },
+            &token,
+        )
+        .await
+        .expect("custom assistant update should succeed");
+
+        assert_eq!(updated.name, updated_name);
+        assert!(updated.internet_access);
+        assert_eq!(updated.selected_lens, "22524");
+        assert!(updated.personalizations);
+
+        let deleted = execute_custom_assistant_delete(&created_id, &token)
+            .await
+            .expect("custom assistant delete should succeed");
+        assert_eq!(deleted.id, created_id);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live KAGI_SESSION_TOKEN and mutates lenses"]
+    async fn live_lens_crud_roundtrip() {
+        let Some(token) = live_session_token() else {
+            eprintln!("skipping live lens test because {SESSION_TOKEN_ENV} is not set");
+            return;
+        };
+
+        let nonce = live_nonce();
+        let suffix = (nonce % 1_000_000_000).to_string();
+        let name = format!("cl-{suffix}");
+        let updated_name = format!("clu-{suffix}");
+
+        let created = execute_lens_create(
+            &LensCreateRequest {
+                name: name.clone(),
+                included_sites: Some("example.invalid".to_string()),
+                included_keywords: Some("codex".to_string()),
+                description: Some("Codex test lens".to_string()),
+                search_region: Some("no_region".to_string()),
+                before_time: None,
+                after_time: None,
+                excluded_sites: Some("blocked.example.invalid".to_string()),
+                excluded_keywords: Some("ignoreme".to_string()),
+                shortcut_keyword: Some(format!("cl{nonce}")),
+                autocomplete_keywords: Some(false),
+                template: Some("0".to_string()),
+                file_type: Some("pdf".to_string()),
+                share_with_team: Some(false),
+                share_copy_code: Some(false),
+            },
+            &token,
+        )
+        .await
+        .expect("lens create should succeed");
+
+        let lens_id = created.id.clone().expect("created lens should have id");
+        assert_eq!(created.name, name);
+        assert_eq!(created.included_sites, "example.invalid");
+
+        let toggled_off = execute_lens_set_enabled(&lens_id, false, &token)
+            .await
+            .expect("lens disable should succeed");
+        assert!(!toggled_off.enabled);
+
+        let toggled_on = execute_lens_set_enabled(&lens_id, true, &token)
+            .await
+            .expect("lens enable should succeed");
+        assert!(toggled_on.enabled);
+
+        let updated = execute_lens_update(
+            &LensUpdateRequest {
+                target: lens_id.clone(),
+                name: Some(updated_name.clone()),
+                included_sites: Some("example.invalid, docs.example.invalid".to_string()),
+                included_keywords: Some("codex, rust".to_string()),
+                description: Some("Updated Codex lens".to_string()),
+                search_region: Some("us".to_string()),
+                before_time: None,
+                after_time: None,
+                excluded_sites: Some("blocked.example.invalid".to_string()),
+                excluded_keywords: Some("ignoreme".to_string()),
+                shortcut_keyword: Some(format!("clu{nonce}")),
+                autocomplete_keywords: Some(true),
+                template: Some("1".to_string()),
+                file_type: Some("md".to_string()),
+                share_with_team: Some(false),
+                share_copy_code: Some(false),
+            },
+            &token,
+        )
+        .await
+        .expect("lens update should succeed");
+
+        assert_eq!(updated.name, updated_name);
+        assert_eq!(updated.search_region, "us");
+        assert!(updated.autocomplete_keywords);
+        assert_eq!(updated.template, "1");
+
+        let deleted = execute_lens_delete(&lens_id, &token)
+            .await
+            .expect("lens delete should succeed");
+        assert_eq!(deleted.id, lens_id);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live KAGI_SESSION_TOKEN and mutates custom bangs"]
+    async fn live_custom_bang_crud_roundtrip() {
+        let Some(token) = live_session_token() else {
+            eprintln!("skipping live custom bang test because {SESSION_TOKEN_ENV} is not set");
+            return;
+        };
+
+        let nonce = live_nonce();
+        let name = format!("Codex Bang {nonce}");
+        let trigger = format!("cb{nonce}");
+        let updated_trigger = format!("cbu{nonce}");
+
+        let created = execute_custom_bang_create(
+            &CustomBangCreateRequest {
+                name: name.clone(),
+                trigger: trigger.clone(),
+                template: Some("https://example.invalid/search?q=%s".to_string()),
+                snap_domain: Some("example.invalid".to_string()),
+                regex_pattern: None,
+                shortcut_menu: Some(false),
+                fmt_open_snap_domain: Some(false),
+                fmt_open_base_path: Some(true),
+                fmt_url_encode_placeholder: Some(true),
+                fmt_url_encode_space_to_plus: Some(false),
+            },
+            &token,
+        )
+        .await
+        .expect("custom bang create should succeed");
+
+        let bang_id = created.bang_id.clone().expect("created bang should have id");
+        assert_eq!(created.name, name);
+        assert_eq!(created.trigger, trigger);
+
+        let fetched = execute_custom_bang_get(&bang_id, &token)
+            .await
+            .expect("custom bang get should succeed");
+        assert_eq!(fetched.snap_domain, "example.invalid");
+
+        let updated = execute_custom_bang_update(
+            &CustomBangUpdateRequest {
+                target: bang_id.clone(),
+                name: Some(format!("{name} Updated")),
+                trigger: Some(updated_trigger.clone()),
+                template: Some("https://example.invalid/find?q=%s".to_string()),
+                snap_domain: Some("example.invalid".to_string()),
+                regex_pattern: Some("^(.+)$".to_string()),
+                shortcut_menu: Some(true),
+                fmt_open_snap_domain: Some(false),
+                fmt_open_base_path: Some(true),
+                fmt_url_encode_placeholder: Some(true),
+                fmt_url_encode_space_to_plus: Some(true),
+            },
+            &token,
+        )
+        .await
+        .expect("custom bang update should succeed");
+
+        assert_eq!(updated.trigger, updated_trigger);
+        assert!(updated.shortcut_menu);
+        assert!(updated.fmt_url_encode_space_to_plus);
+
+        let deleted = execute_custom_bang_delete(&bang_id, &token)
+            .await
+            .expect("custom bang delete should succeed");
+        assert_eq!(deleted.id, bang_id);
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live KAGI_SESSION_TOKEN and mutates redirects"]
+    async fn live_redirect_crud_roundtrip() {
+        let Some(token) = live_session_token() else {
+            eprintln!("skipping live redirect test because {SESSION_TOKEN_ENV} is not set");
+            return;
+        };
+
+        let nonce = live_nonce();
+        let rule = format!(
+            "^https://probe-{nonce}.example.invalid|https://target-{nonce}.example.invalid"
+        );
+        let updated_rule = format!(
+            "^https://probe-{nonce}.example.invalid|https://updated-{nonce}.example.invalid"
+        );
+
+        let created = execute_redirect_create(
+            &RedirectRuleCreateRequest { rule: rule.clone() },
+            &token,
+        )
+        .await
+        .expect("redirect create should succeed");
+
+        let rule_id = created.rule_id.clone().expect("created redirect should have id");
+        assert_eq!(created.rule, rule);
+
+        let listed = execute_redirect_list(&token)
+            .await
+            .expect("redirect list should succeed");
+        assert!(listed.iter().any(|redirect| redirect.id == rule_id));
+
+        let toggled_off = execute_redirect_set_enabled(&rule_id, false, &token)
+            .await
+            .expect("redirect disable should succeed");
+        assert!(!toggled_off.enabled);
+
+        let toggled_on = execute_redirect_set_enabled(&rule_id, true, &token)
+            .await
+            .expect("redirect enable should succeed");
+        assert!(toggled_on.enabled);
+
+        let updated = execute_redirect_update(
+            &RedirectRuleUpdateRequest {
+                target: rule_id.clone(),
+                rule: updated_rule.clone(),
+            },
+            &token,
+        )
+        .await
+        .expect("redirect update should succeed");
+
+        assert_eq!(updated.rule, updated_rule);
+
+        let deleted = execute_redirect_delete(&rule_id, &token)
+            .await
+            .expect("redirect delete should succeed");
+        assert_eq!(deleted.id, rule_id);
     }
 
     #[test]

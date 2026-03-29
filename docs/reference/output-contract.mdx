@@ -10,7 +10,7 @@ This page documents the current CLI output behavior as implemented in the repo.
 ## Core Rules
 
 1. Most commands print pretty-formatted JSON to stdout on success.
-2. `kagi search`, `kagi batch`, and `kagi quick` support human-readable output via format flags.
+2. `kagi search`, `kagi batch`, `kagi quick`, and `kagi assistant` support human-readable output via format flags.
 3. Errors are plain text on stderr and exit with status code `1`.
 4. Output shapes differ by command. There is no single universal response envelope.
 
@@ -135,6 +135,83 @@ Subscriber mode:
     "markdown": "Hi"
   }
 }
+```
+
+### `kagi assistant custom`
+
+`list` returns an array of assistant summaries:
+
+```json
+[
+  {
+    "id": "assistant-1",
+    "name": "Research",
+    "invoke_profile": "research",
+    "model": "gpt-5-mini",
+    "bang_trigger": "research",
+    "internet_access": true,
+    "built_in": false,
+    "edit_url": "/assistant/custom-assistants/assistant-1"
+  }
+]
+```
+
+`get`, `create`, and `update` return assistant details:
+
+```json
+{
+  "profile_id": "assistant-1",
+  "name": "Research",
+  "bang_trigger": "research",
+  "internet_access": true,
+  "selected_lens": "",
+  "personalizations": false,
+  "base_model": "gpt-5-mini",
+  "custom_instructions": "Focus on changelogs first.",
+  "delete_supported": true
+}
+```
+
+### `kagi lens`
+
+```json
+[
+  {
+    "id": "42",
+    "name": "Rust Docs",
+    "description": "Rust docs only",
+    "enabled": true,
+    "position": 2,
+    "edit_url": "/settings/lenses/edit/42"
+  }
+]
+```
+
+### `kagi bang custom`
+
+```json
+[
+  {
+    "id": "7",
+    "name": "Rust Docs",
+    "trigger": "rustdocs",
+    "shortcut_menu": true,
+    "edit_url": "/settings/custom_bangs/edit/7"
+  }
+]
+```
+
+### `kagi redirect`
+
+```json
+[
+  {
+    "id": "12",
+    "rule": "^gh/(.+)$|https://github.com/$1",
+    "enabled": true,
+    "edit_url": "/rewrite_rules/edit/12"
+  }
+]
 ```
 
 ### `kagi quick`
@@ -311,6 +388,17 @@ References
    https://www.rust-lang.org/learn
 ```
 
+## Pretty Assistant Output
+
+`kagi assistant --format pretty` renders:
+
+```text
+Thread: thread-1
+Message: msg-1
+
+Rust 1.86 added...
+```
+
 ## Error Behavior
 
 Errors are plain text on stderr. Typical examples:
@@ -350,6 +438,18 @@ kagi assistant thread list | jq -r '.threads[].id'
 
 # Assistant thread export markdown
 kagi assistant thread export "$THREAD_ID"
+
+# Assistant profile names
+kagi assistant custom list | jq -r '.[].name'
+
+# Lens names
+kagi lens list | jq -r '.[].name'
+
+# Bang triggers
+kagi bang custom list | jq -r '.[].trigger'
+
+# Enabled redirect rules
+kagi redirect list | jq -r '.[] | select(.enabled) | .rule'
 
 # Subscriber summary text
 kagi summarize --subscriber --url https://example.com | jq -r '.data.output'

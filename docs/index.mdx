@@ -48,6 +48,7 @@ The CLI is built to work cleanly in scripted and tool-driven environments:
 Unlock the full potential of your Kagi subscription:
 
 - **Lens-Aware Search**: Use your custom Kagi lenses directly from the command line.
+- **Account Settings**: Manage saved assistants, search lenses, custom bangs, and redirect rules without leaving the terminal.
 - **Quick Answers**: Get Kagi Quick Answer responses with references and follow-up questions.
 - **Assistant Integration**: Prompt Kagi Assistant programmatically, continue conversations, and manage threads across sessions.
 - **Ask Page**: Start a page-focused Assistant thread directly from one URL and one question.
@@ -63,6 +64,7 @@ Unlock the full potential of your Kagi subscription:
 The `kagi search` command provides multiple pathways depending on your authentication and needs:
 
 - **Base Search**: Standard Kagi search with high-quality results
+- **Snap-Prefixed Search**: Reuse your Kagi snap shortcuts from the CLI with `--snap`
 - **API Token Path**: Uses the documented Search API when you have API access
 - **Session Token Path**: Uses the subscriber web product for enhanced capabilities
 - **Lens Search**: Scope searches to your personal Kagi lenses (requires session token)
@@ -83,7 +85,9 @@ Two credential types serve different purposes:
 - **FastGPT**: Quick answers powered by Kagi's FastGPT API
 - **Enrichment**: Query specialized web and news indexes
 - **Assistant**: Full conversation support with thread continuation and thread management
+- **Assistant Profiles**: Reuse saved assistants with `--assistant` and manage them with `assistant custom`
 - **Ask Page**: Page-focused Assistant questions with structured output
+- **Settings Management**: Create and maintain lenses, custom bangs, and redirect rules
 
 ### Public Feeds
 

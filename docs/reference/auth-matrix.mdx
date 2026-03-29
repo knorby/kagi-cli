@@ -24,6 +24,10 @@ This reference provides a complete mapping of which commands require which authe
 | `quick` | `KAGI_SESSION_TOKEN` | None | Quick Answer web product |
 | `ask-page` | `KAGI_SESSION_TOKEN` | None | Subscriber feature |
 | `assistant` | `KAGI_SESSION_TOKEN` | None | Subscriber feature |
+| `assistant custom` | `KAGI_SESSION_TOKEN` | None | Custom assistant settings |
+| `lens` | `KAGI_SESSION_TOKEN` | None | Lens settings management |
+| `bang custom` | `KAGI_SESSION_TOKEN` | None | Custom bang settings |
+| `redirect` | `KAGI_SESSION_TOKEN` | None | Redirect rule settings |
 | `translate` | `KAGI_SESSION_TOKEN` | None | Text mode only; bootstraps `translate_session` over HTTP |
 | `fastgpt` | `KAGI_API_TOKEN` | None | Paid public API |
 | `enrich web` | `KAGI_API_TOKEN` | None | Paid public API |
@@ -140,8 +144,17 @@ flowchart TD
 | `quick` | `KAGI_SESSION_TOKEN` | Quick answers with references |
 | `ask-page` | `KAGI_SESSION_TOKEN` | Ask Assistant about one page URL |
 | `assistant` | `KAGI_SESSION_TOKEN` | Conversational AI with threads |
+| `assistant custom` | `KAGI_SESSION_TOKEN` | Create and manage saved assistants |
 | `translate` | `KAGI_SESSION_TOKEN` | Kagi Translate text mode |
 | `fastgpt` | `KAGI_API_TOKEN` | Quick factual answers |
+
+#### Settings Commands
+
+| Command | Token | Purpose |
+|---------|-------|---------|
+| `lens` | `KAGI_SESSION_TOKEN` | Manage search lenses |
+| `bang custom` | `KAGI_SESSION_TOKEN` | Manage custom bangs |
+| `redirect` | `KAGI_SESSION_TOKEN` | Manage redirect rules |
 
 ### Data Commands
 
@@ -171,7 +184,11 @@ Requires `KAGI_SESSION_TOKEN`:
 - ✅ Quick Answer (`quick`)
 - ✅ Filtered search (`--region`, `--time`, `--from-date`, `--to-date`, `--order`, `--verbatim`, personalization flags)
 - ✅ Kagi Assistant prompt and thread commands (`assistant`)
+- ✅ Custom assistant management (`assistant custom`)
 - ✅ Ask Page (`ask-page`)
+- ✅ Lens management (`lens`)
+- ✅ Custom bang management (`bang custom`)
+- ✅ Redirect management (`redirect`)
 - ✅ Kagi Translate (`translate`)
 - ✅ Subscriber Summarizer (`summarize --subscriber`)
 - ✅ Base search (fallback)
@@ -217,6 +234,8 @@ session_token = "session456"
 ```
 - `search`: Uses the configured base-search preference (session by default)
 - `assistant`: Uses session token
+- `assistant custom`: Uses session token
+- `lens`: Uses session token
 - `news`: No token needed
 
 **Scenario 2: Mixed sources**
@@ -235,6 +254,7 @@ export KAGI_SESSION_TOKEN="special_session"
 ```
 - `search`: Uses env session token (not API, so tries web)
 - `assistant`: Uses env session token
+- `redirect`: Uses env session token
 
 ## Common Configurations
 
@@ -251,8 +271,11 @@ kagi auth set --session-token 'https://kagi.com/search?token=...'
 - ✅ `kagi quick "what is rust"`
 - ✅ `kagi search --region us --time month "query"`
 - ✅ `kagi ask-page https://example.com "question"`
-- ✅ `kagi quick "what is rust"`
 - ✅ `kagi assistant "prompt"`
+- ✅ `kagi assistant custom list`
+- ✅ `kagi lens list`
+- ✅ `kagi bang custom list`
+- ✅ `kagi redirect list`
 - ✅ `kagi translate "Bonjour tout le monde"`
 - ✅ `kagi summarize --subscriber --url ...`
 - ✅ `kagi news`
@@ -285,6 +308,10 @@ kagi auth set --api-token 'your_api_token'
 - ❌ `kagi ask-page https://example.com "question"` - requires session token
 - ❌ `kagi quick` - requires session token
 - ❌ `kagi assistant` - requires session token
+- ❌ `kagi assistant custom list` - requires session token
+- ❌ `kagi lens list` - requires session token
+- ❌ `kagi bang custom list` - requires session token
+- ❌ `kagi redirect list` - requires session token
 - ❌ `kagi summarize --subscriber` - requires session token
 
 ### Both Tokens
@@ -303,8 +330,11 @@ kagi auth set --session-token '...' --api-token '...'
 - `summarize --subscriber`: Uses session
 - `quick`: Uses session
 - `ask-page`: Uses session
-- `quick`: Uses session
 - `assistant`: Uses session
+- `assistant custom`: Uses session
+- `lens`: Uses session
+- `bang custom`: Uses session
+- `redirect`: Uses session
 - `fastgpt`: Uses API
 
 ## Troubleshooting Matrix
@@ -365,8 +395,13 @@ kagi assistant "prompt"
 |------------|--------------|---------|
 | Search generally | Either | `kagi search` |
 | Use my lens | Session | `kagi search --lens` |
-| Quick answers | API | `kagi fastgpt` |
+| Manage my lenses | Session | `kagi lens` |
+| Quick answer from the web product | Session | `kagi quick` |
+| Faster factual answer from the API | API | `kagi fastgpt` |
 | AI conversation | Session | `kagi assistant` |
+| Manage saved assistants | Session | `kagi assistant custom` |
+| Manage custom bangs | Session | `kagi bang custom` |
+| Manage redirect rules | Session | `kagi redirect` |
 | Translate text | Session | `kagi translate` |
 | Summarize (free API) | API | `kagi summarize --url` |
 | Summarize (subscription) | Session | `kagi summarize --subscriber` |

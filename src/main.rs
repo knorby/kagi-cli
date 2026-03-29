@@ -13,11 +13,19 @@ use clap::{CommandFactory, Parser};
 use clap_complete::{generate, shells};
 
 use crate::api::{
-    NewsFilterRequest, execute_ask_page, execute_assistant_prompt, execute_assistant_thread_delete,
-    execute_assistant_thread_export, execute_assistant_thread_get, execute_assistant_thread_list,
-    execute_enrich_news, execute_enrich_web, execute_fastgpt, execute_news,
-    execute_news_categories, execute_news_chaos, execute_news_filter_presets, execute_smallweb,
-    execute_subscriber_summarize, execute_summarize, execute_translate,
+    NewsFilterRequest, execute_ask_page, execute_assistant_prompt,
+    execute_assistant_thread_delete, execute_assistant_thread_export,
+    execute_assistant_thread_get, execute_assistant_thread_list, execute_custom_assistant_create,
+    execute_custom_assistant_delete, execute_custom_assistant_get, execute_custom_assistant_list,
+    execute_custom_assistant_update, execute_custom_bang_create, execute_custom_bang_delete,
+    execute_custom_bang_get, execute_custom_bang_list, execute_custom_bang_update,
+    execute_enrich_news, execute_enrich_web, execute_fastgpt, execute_lens_create,
+    execute_lens_delete, execute_lens_get, execute_lens_list, execute_lens_set_enabled,
+    execute_lens_update, execute_news, execute_news_categories, execute_news_chaos,
+    execute_news_filter_presets, execute_redirect_create, execute_redirect_delete,
+    execute_redirect_get, execute_redirect_list, execute_redirect_set_enabled,
+    execute_redirect_update, execute_smallweb, execute_subscriber_summarize,
+    execute_summarize, execute_translate,
 };
 use crate::auth::{
     Credential, CredentialKind, SearchAuthRequirement, SearchCredentials, format_status,
@@ -25,15 +33,19 @@ use crate::auth::{
 };
 use crate::auth_wizard::{run_auth_wizard, supports_interactive_auth, validate_credential};
 use crate::cli::{
-    AssistantSubcommand, AssistantThreadExportFormat, AssistantThreadSubcommand, AuthSetArgs,
-    AuthSubcommand, Cli, Commands, CompletionShell, EnrichSubcommand, SearchOrder, SearchTime,
-    TranslateArgs,
+    AssistantCustomSubcommand, AssistantOutputFormat, AssistantSubcommand,
+    AssistantThreadExportFormat, AssistantThreadSubcommand, AuthSetArgs, AuthSubcommand,
+    BangSubcommand, Cli, Commands, CompletionShell, CustomBangSubcommand, EnrichSubcommand,
+    SearchOrder, SearchTime, TranslateArgs,
 };
 use crate::error::KagiError;
 use crate::quick::{execute_quick, format_quick_markdown, format_quick_pretty};
 use crate::types::{
-    AskPageRequest, AssistantPromptRequest, FastGptRequest, QuickResponse, SearchResponse,
-    SubscriberSummarizeRequest, SummarizeRequest, TranslateCommandRequest,
+    AskPageRequest, AssistantProfileCreateRequest, AssistantProfileUpdateRequest,
+    AssistantPromptRequest, CustomBangCreateRequest, CustomBangUpdateRequest, FastGptRequest,
+    LensCreateRequest, LensUpdateRequest, QuickResponse, RedirectRuleCreateRequest,
+    RedirectRuleUpdateRequest, SearchResponse, SubscriberSummarizeRequest, SummarizeRequest,
+    TranslateCommandRequest,
 };
 use serde_json::Value;
 use std::env;
@@ -43,6 +55,7 @@ use tokio::sync::Semaphore;
 
 #[derive(Debug, Clone)]
 struct SearchRequestOptions {
+    snap: Option<String>,
     lens: Option<String>,
     region: Option<String>,
     time: Option<SearchTime>,
@@ -93,6 +106,7 @@ async fn run() -> Result<(), KagiError> {
     {
         Commands::Search(args) => {
             let options = SearchRequestOptions {
+                snap: args.snap,
                 lens: args.lens,
                 region: args.region,
                 time: args.time,
@@ -192,32 +206,96 @@ async fn run() -> Result<(), KagiError> {
         }
         Commands::Assistant(args) => {
             let token = resolve_session_token()?;
-            if let Some(AssistantSubcommand::Thread(thread_args)) = args.command {
-                match thread_args.command {
-                    AssistantThreadSubcommand::List => {
-                        let response = execute_assistant_thread_list(&token).await?;
-                        print_json(&response)
-                    }
-                    AssistantThreadSubcommand::Get(thread) => {
-                        let response =
-                            execute_assistant_thread_get(&thread.thread_id, &token).await?;
-                        print_json(&response)
-                    }
-                    AssistantThreadSubcommand::Delete(thread) => {
-                        let response =
-                            execute_assistant_thread_delete(&thread.thread_id, &token).await?;
-                        print_json(&response)
-                    }
-                    AssistantThreadSubcommand::Export(export) => match export.format {
-                        AssistantThreadExportFormat::Markdown => {
-                            let response =
-                                execute_assistant_thread_export(&export.thread_id, &token).await?;
-                            println!("{}", response.markdown);
-                            Ok(())
+            if let Some(subcommand) = args.command {
+                match subcommand {
+                    AssistantSubcommand::Thread(thread_args) => match thread_args.command {
+                        AssistantThreadSubcommand::List => {
+                            let response = execute_assistant_thread_list(&token).await?;
+                            print_json(&response)
                         }
-                        AssistantThreadExportFormat::Json => {
+                        AssistantThreadSubcommand::Get(thread) => {
                             let response =
-                                execute_assistant_thread_get(&export.thread_id, &token).await?;
+                                execute_assistant_thread_get(&thread.thread_id, &token).await?;
+                            print_json(&response)
+                        }
+                        AssistantThreadSubcommand::Delete(thread) => {
+                            let response =
+                                execute_assistant_thread_delete(&thread.thread_id, &token).await?;
+                            print_json(&response)
+                        }
+                        AssistantThreadSubcommand::Export(export) => match export.format {
+                            AssistantThreadExportFormat::Markdown => {
+                                let response =
+                                    execute_assistant_thread_export(&export.thread_id, &token)
+                                        .await?;
+                                println!("{}", response.markdown);
+                                Ok(())
+                            }
+                            AssistantThreadExportFormat::Json => {
+                                let response =
+                                    execute_assistant_thread_get(&export.thread_id, &token)
+                                        .await?;
+                                print_json(&response)
+                            }
+                        },
+                    },
+                    AssistantSubcommand::Custom(custom_args) => match custom_args.command {
+                        AssistantCustomSubcommand::List => {
+                            let response = execute_custom_assistant_list(&token).await?;
+                            print_json(&response)
+                        }
+                        AssistantCustomSubcommand::Get(target) => {
+                            let response = execute_custom_assistant_get(&target.target, &token).await?;
+                            print_json(&response)
+                        }
+                        AssistantCustomSubcommand::Create(create) => {
+                            let response = execute_custom_assistant_create(
+                                &AssistantProfileCreateRequest {
+                                    name: create.name,
+                                    bang_trigger: normalize_optional_string(create.bang_trigger),
+                                    internet_access: bool_flag_choice(
+                                        create.web_access,
+                                        create.no_web_access,
+                                    ),
+                                    selected_lens: normalize_optional_string(create.lens),
+                                    personalizations: bool_flag_choice(
+                                        create.personalized,
+                                        create.no_personalized,
+                                    ),
+                                    base_model: normalize_optional_string(create.model),
+                                    custom_instructions: create.instructions,
+                                },
+                                &token,
+                            )
+                            .await?;
+                            print_json(&response)
+                        }
+                        AssistantCustomSubcommand::Update(update) => {
+                            let response = execute_custom_assistant_update(
+                                &AssistantProfileUpdateRequest {
+                                    target: update.target,
+                                    name: normalize_optional_string(update.name),
+                                    bang_trigger: normalize_optional_string(update.bang_trigger),
+                                    internet_access: bool_flag_choice(
+                                        update.web_access,
+                                        update.no_web_access,
+                                    ),
+                                    selected_lens: normalize_optional_string(update.lens),
+                                    personalizations: bool_flag_choice(
+                                        update.personalized,
+                                        update.no_personalized,
+                                    ),
+                                    base_model: normalize_optional_string(update.model),
+                                    custom_instructions: update.instructions,
+                                },
+                                &token,
+                            )
+                            .await?;
+                            print_json(&response)
+                        }
+                        AssistantCustomSubcommand::Delete(target) => {
+                            let response =
+                                execute_custom_assistant_delete(&target.target, &token).await?;
                             print_json(&response)
                         }
                     },
@@ -232,6 +310,7 @@ async fn run() -> Result<(), KagiError> {
                 let request = AssistantPromptRequest {
                     query,
                     thread_id: args.thread_id,
+                    profile_id: normalize_optional_string(args.assistant),
                     model: args.model,
                     lens_id: args.lens,
                     internet_access: match (args.web_access, args.no_web_access) {
@@ -246,7 +325,7 @@ async fn run() -> Result<(), KagiError> {
                     },
                 };
                 let response = execute_assistant_prompt(&request, &token).await?;
-                print_json(&response)
+                print_assistant_response(&response, args.format, !args.no_color)
             }
         }
         Commands::AskPage(args) => {
@@ -303,6 +382,234 @@ async fn run() -> Result<(), KagiError> {
             let response = execute_smallweb(args.limit).await?;
             print_json(&response)
         }
+        Commands::Lens(command) => {
+            let token = resolve_session_token()?;
+            match command.command {
+                cli::LensSubcommand::List => {
+                    let response = execute_lens_list(&token).await?;
+                    print_json(&response)
+                }
+                cli::LensSubcommand::Get(target) => {
+                    let response = execute_lens_get(&target.target, &token).await?;
+                    print_json(&response)
+                }
+                cli::LensSubcommand::Create(create) => {
+                    let response = execute_lens_create(
+                        &LensCreateRequest {
+                            name: create.name,
+                            included_sites: normalize_optional_string(create.included_sites),
+                            included_keywords: normalize_optional_string(create.included_keywords),
+                            description: create.description,
+                            search_region: normalize_optional_string(create.region),
+                            before_time: normalize_optional_string(create.before_date),
+                            after_time: normalize_optional_string(create.after_date),
+                            excluded_sites: normalize_optional_string(create.excluded_sites),
+                            excluded_keywords: normalize_optional_string(create.excluded_keywords),
+                            shortcut_keyword: normalize_optional_string(create.shortcut),
+                            autocomplete_keywords: bool_flag_choice(
+                                create.autocomplete_keywords,
+                                create.no_autocomplete_keywords,
+                            ),
+                            template: create
+                                .template
+                                .map(|value| value.as_form_value().to_string()),
+                            file_type: normalize_optional_string(create.file_type),
+                            share_with_team: bool_flag_choice(
+                                create.share_with_team,
+                                create.no_share_with_team,
+                            ),
+                            share_copy_code: bool_flag_choice(
+                                create.share_copy_code,
+                                create.no_share_copy_code,
+                            ),
+                        },
+                        &token,
+                    )
+                    .await?;
+                    print_json(&response)
+                }
+                cli::LensSubcommand::Update(update) => {
+                    let response = execute_lens_update(
+                        &LensUpdateRequest {
+                            target: update.target,
+                            name: normalize_optional_string(update.name),
+                            included_sites: normalize_optional_string(update.included_sites),
+                            included_keywords: normalize_optional_string(update.included_keywords),
+                            description: update.description,
+                            search_region: normalize_optional_string(update.region),
+                            before_time: normalize_optional_string(update.before_date),
+                            after_time: normalize_optional_string(update.after_date),
+                            excluded_sites: normalize_optional_string(update.excluded_sites),
+                            excluded_keywords: normalize_optional_string(update.excluded_keywords),
+                            shortcut_keyword: normalize_optional_string(update.shortcut),
+                            autocomplete_keywords: bool_flag_choice(
+                                update.autocomplete_keywords,
+                                update.no_autocomplete_keywords,
+                            ),
+                            template: update
+                                .template
+                                .map(|value| value.as_form_value().to_string()),
+                            file_type: normalize_optional_string(update.file_type),
+                            share_with_team: bool_flag_choice(
+                                update.share_with_team,
+                                update.no_share_with_team,
+                            ),
+                            share_copy_code: bool_flag_choice(
+                                update.share_copy_code,
+                                update.no_share_copy_code,
+                            ),
+                        },
+                        &token,
+                    )
+                    .await?;
+                    print_json(&response)
+                }
+                cli::LensSubcommand::Delete(target) => {
+                    let response = execute_lens_delete(&target.target, &token).await?;
+                    print_json(&response)
+                }
+                cli::LensSubcommand::Enable(target) => {
+                    let response = execute_lens_set_enabled(&target.target, true, &token).await?;
+                    print_json(&response)
+                }
+                cli::LensSubcommand::Disable(target) => {
+                    let response = execute_lens_set_enabled(&target.target, false, &token).await?;
+                    print_json(&response)
+                }
+            }
+        }
+        Commands::Bang(command) => {
+            let token = resolve_session_token()?;
+            match command.command {
+                BangSubcommand::Custom(custom) => match custom.command {
+                    CustomBangSubcommand::List => {
+                        let response = execute_custom_bang_list(&token).await?;
+                        print_json(&response)
+                    }
+                    CustomBangSubcommand::Get(target) => {
+                        let response = execute_custom_bang_get(&target.target, &token).await?;
+                        print_json(&response)
+                    }
+                    CustomBangSubcommand::Create(create) => {
+                        let response = execute_custom_bang_create(
+                            &CustomBangCreateRequest {
+                                name: create.name,
+                                trigger: create.trigger,
+                                template: normalize_optional_string(create.template),
+                                snap_domain: normalize_optional_string(create.snap_domain),
+                                regex_pattern: create.regex_pattern,
+                                shortcut_menu: bool_flag_choice(
+                                    create.shortcut_menu,
+                                    create.no_shortcut_menu,
+                                ),
+                                fmt_open_snap_domain: bool_flag_choice(
+                                    create.open_snap_domain,
+                                    create.no_open_snap_domain,
+                                ),
+                                fmt_open_base_path: bool_flag_choice(
+                                    create.open_base_path,
+                                    create.no_open_base_path,
+                                ),
+                                fmt_url_encode_placeholder: bool_flag_choice(
+                                    create.encode_placeholder,
+                                    create.no_encode_placeholder,
+                                ),
+                                fmt_url_encode_space_to_plus: bool_flag_choice(
+                                    create.plus_for_space,
+                                    create.no_plus_for_space,
+                                ),
+                            },
+                            &token,
+                        )
+                        .await?;
+                        print_json(&response)
+                    }
+                    CustomBangSubcommand::Update(update) => {
+                        let response = execute_custom_bang_update(
+                            &CustomBangUpdateRequest {
+                                target: update.target,
+                                name: normalize_optional_string(update.name),
+                                trigger: normalize_optional_string(update.trigger),
+                                template: normalize_optional_string(update.template),
+                                snap_domain: normalize_optional_string(update.snap_domain),
+                                regex_pattern: update.regex_pattern,
+                                shortcut_menu: bool_flag_choice(
+                                    update.shortcut_menu,
+                                    update.no_shortcut_menu,
+                                ),
+                                fmt_open_snap_domain: bool_flag_choice(
+                                    update.open_snap_domain,
+                                    update.no_open_snap_domain,
+                                ),
+                                fmt_open_base_path: bool_flag_choice(
+                                    update.open_base_path,
+                                    update.no_open_base_path,
+                                ),
+                                fmt_url_encode_placeholder: bool_flag_choice(
+                                    update.encode_placeholder,
+                                    update.no_encode_placeholder,
+                                ),
+                                fmt_url_encode_space_to_plus: bool_flag_choice(
+                                    update.plus_for_space,
+                                    update.no_plus_for_space,
+                                ),
+                            },
+                            &token,
+                        )
+                        .await?;
+                        print_json(&response)
+                    }
+                    CustomBangSubcommand::Delete(target) => {
+                        let response = execute_custom_bang_delete(&target.target, &token).await?;
+                        print_json(&response)
+                    }
+                },
+            }
+        }
+        Commands::Redirect(command) => {
+            let token = resolve_session_token()?;
+            match command.command {
+                cli::RedirectSubcommand::List => {
+                    let response = execute_redirect_list(&token).await?;
+                    print_json(&response)
+                }
+                cli::RedirectSubcommand::Get(target) => {
+                    let response = execute_redirect_get(&target.target, &token).await?;
+                    print_json(&response)
+                }
+                cli::RedirectSubcommand::Create(create) => {
+                    let response =
+                        execute_redirect_create(&RedirectRuleCreateRequest { rule: create.rule }, &token)
+                            .await?;
+                    print_json(&response)
+                }
+                cli::RedirectSubcommand::Update(update) => {
+                    let response = execute_redirect_update(
+                        &RedirectRuleUpdateRequest {
+                            target: update.target,
+                            rule: update.rule,
+                        },
+                        &token,
+                    )
+                    .await?;
+                    print_json(&response)
+                }
+                cli::RedirectSubcommand::Delete(target) => {
+                    let response = execute_redirect_delete(&target.target, &token).await?;
+                    print_json(&response)
+                }
+                cli::RedirectSubcommand::Enable(target) => {
+                    let response =
+                        execute_redirect_set_enabled(&target.target, true, &token).await?;
+                    print_json(&response)
+                }
+                cli::RedirectSubcommand::Disable(target) => {
+                    let response =
+                        execute_redirect_set_enabled(&target.target, false, &token).await?;
+                    print_json(&response)
+                }
+            }
+        }
         Commands::Batch(args) => {
             args.validate().map_err(KagiError::Config)?;
 
@@ -320,6 +627,7 @@ async fn run() -> Result<(), KagiError> {
                 format_str.to_string(),
                 !args.no_color,
                 SearchRequestOptions {
+                    snap: args.snap,
                     lens: args.lens,
                     region: args.region,
                     time: args.time,
@@ -479,6 +787,14 @@ fn normalize_optional_string(value: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn bool_flag_choice(enabled: bool, disabled: bool) -> Option<bool> {
+    match (enabled, disabled) {
+        (true, false) => Some(true),
+        (false, true) => Some(false),
+        _ => None,
+    }
+}
+
 fn parse_context_memory_json(raw: Option<&str>) -> Result<Option<Vec<Value>>, KagiError> {
     let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(None);
@@ -499,6 +815,19 @@ fn parse_context_memory_json(raw: Option<&str>) -> Result<Option<Vec<Value>>, Ka
 }
 
 fn build_search_request(query: String, options: &SearchRequestOptions) -> search::SearchRequest {
+    let mut query = query.trim().to_string();
+    if let Some(snap) = options
+        .snap
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let snap = snap.trim_start_matches('@').trim();
+        if !snap.is_empty() {
+            query = format!("@{snap} {query}");
+        }
+    }
+
     let mut request = search::SearchRequest::new(query);
 
     if let Some(lens) = options.lens.clone() {
@@ -581,6 +910,49 @@ fn print_quick_response(
             Ok(())
         }
         _ => print_json(response),
+    }
+}
+
+fn print_assistant_response(
+    response: &crate::types::AssistantPromptResponse,
+    format: AssistantOutputFormat,
+    use_color: bool,
+) -> Result<(), KagiError> {
+    match format {
+        AssistantOutputFormat::Pretty => {
+            let title_color = if use_color { "\x1b[1;34m" } else { "" };
+            let muted_color = if use_color { "\x1b[36m" } else { "" };
+            let reset_color = if use_color { "\x1b[0m" } else { "" };
+            let content = response
+                .message
+                .markdown
+                .as_deref()
+                .or(response.message.reply_html.as_deref())
+                .unwrap_or("")
+                .trim();
+            println!(
+                "{title_color}Thread{reset_color}: {}\n{muted_color}Message{reset_color}: {}\n\n{}",
+                response.thread.id,
+                response.message.id,
+                content
+            );
+            Ok(())
+        }
+        AssistantOutputFormat::Compact => print_compact_json(response),
+        AssistantOutputFormat::Markdown => {
+            println!(
+                "{}",
+                response
+                    .message
+                    .markdown
+                    .as_deref()
+                    .or(response.message.reply_html.as_deref())
+                    .unwrap_or("")
+                    .trim()
+            );
+            Ok(())
+        }
+        AssistantOutputFormat::Json => print_json(response),
     }
 }
 
@@ -857,13 +1229,17 @@ async fn run_batch_search(
 #[cfg(test)]
 mod tests {
     use super::{
-        RateLimiter, SearchRequestOptions, build_search_request, format_csv_response,
-        format_markdown_response, format_pretty_response, is_bare_auth_invocation_from,
-        parse_context_memory_json, should_fallback_to_session,
+        RateLimiter, SearchRequestOptions, bool_flag_choice, build_search_request,
+        format_csv_response, format_markdown_response, format_pretty_response,
+        is_bare_auth_invocation_from, parse_context_memory_json, print_assistant_response,
+        should_fallback_to_session,
     };
-    use crate::cli::{SearchOrder, SearchTime};
+    use crate::cli::{AssistantOutputFormat, SearchOrder, SearchTime};
     use crate::error::KagiError;
-    use crate::types::{SearchResponse, SearchResult};
+    use crate::types::{
+        AssistantMessage, AssistantMeta, AssistantPromptResponse, AssistantThread, SearchResponse,
+        SearchResult,
+    };
     use serde_json::json;
     use std::sync::Arc;
     use std::time::{Duration, Instant};
@@ -960,6 +1336,7 @@ mod tests {
         let request = build_search_request(
             "rust".to_string(),
             &SearchRequestOptions {
+                snap: None,
                 lens: None,
                 region: None,
                 time: Some(SearchTime::Month),
@@ -975,6 +1352,35 @@ mod tests {
         assert_eq!(request.time_filter.as_deref(), Some("3"));
         assert_eq!(request.order, None);
         assert!(request.has_runtime_filters());
+    }
+
+    #[test]
+    fn build_search_request_prefixes_snap_shortcut() {
+        let request = build_search_request(
+            "rust".to_string(),
+            &SearchRequestOptions {
+                snap: Some("@reddit".to_string()),
+                lens: None,
+                region: None,
+                time: None,
+                from_date: None,
+                to_date: None,
+                order: None,
+                verbatim: false,
+                personalized: false,
+                no_personalized: false,
+            },
+        );
+
+        assert_eq!(request.query, "@reddit rust");
+    }
+
+    #[test]
+    fn resolves_boolean_flag_pairs() {
+        assert_eq!(bool_flag_choice(true, false), Some(true));
+        assert_eq!(bool_flag_choice(false, true), Some(false));
+        assert_eq!(bool_flag_choice(false, false), None);
+        assert_eq!(bool_flag_choice(true, true), None);
     }
 
     #[tokio::test]
@@ -1052,6 +1458,43 @@ mod tests {
             output,
             "## 1. [Rust Programming Language](https://www.rust-lang.org)\n\nA language empowering everyone to build reliable and efficient software.\n\n"
         );
+    }
+
+    #[test]
+    fn prints_assistant_markdown_and_pretty_formats() {
+        let response = AssistantPromptResponse {
+            meta: AssistantMeta::default(),
+            thread: AssistantThread {
+                id: "thread-1".to_string(),
+                title: "Greeting".to_string(),
+                ack: "2026-03-16T06:19:07Z".to_string(),
+                created_at: "2026-03-16T06:19:07Z".to_string(),
+                expires_at: "2026-03-16T07:19:07Z".to_string(),
+                saved: false,
+                shared: false,
+                branch_id: "00000000-0000-4000-0000-000000000000".to_string(),
+                tag_ids: vec![],
+            },
+            message: AssistantMessage {
+                id: "msg-1".to_string(),
+                thread_id: "thread-1".to_string(),
+                created_at: "2026-03-16T06:19:07Z".to_string(),
+                branch_list: vec![],
+                state: "done".to_string(),
+                prompt: "Hello".to_string(),
+                reply_html: Some("<p>Hello</p>".to_string()),
+                markdown: Some("Hello".to_string()),
+                references_html: None,
+                references_markdown: None,
+                metadata_html: None,
+                documents: vec![],
+                profile: None,
+                trace_id: None,
+            },
+        };
+
+        assert!(print_assistant_response(&response, AssistantOutputFormat::Markdown, false).is_ok());
+        assert!(print_assistant_response(&response, AssistantOutputFormat::Pretty, false).is_ok());
     }
 
     #[test]

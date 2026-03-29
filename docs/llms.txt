@@ -22,6 +22,9 @@
 - [quick](https://kagi.micr.dev/commands/quick): Complete reference for *kagi* quick command - get Kagi Quick Answer responses with references from the terminal.
 - [ask-page](https://kagi.micr.dev/commands/ask-page): Complete reference for *kagi* ask-page command - ask Kagi Assistant about a specific web page.
 - [assistant](https://kagi.micr.dev/commands/assistant): Complete reference for *kagi* assistant command - interact with Kagi AI Assistant programmatically.
+- [lens](https://kagi.micr.dev/commands/lens): Complete reference for *kagi* lens command - manage search lenses from the terminal.
+- [bang](https://kagi.micr.dev/commands/bang): Complete reference for *kagi* bang command - manage custom bangs from the terminal.
+- [redirect](https://kagi.micr.dev/commands/redirect): Complete reference for *kagi* redirect command - manage redirect rules from the terminal.
 - [fastgpt](https://kagi.micr.dev/commands/fastgpt): Complete reference for *kagi* fastgpt command - get quick answers using Kagi's FastGPT API.
 - [enrich](https://kagi.micr.dev/commands/enrich): Complete reference for *kagi* enrich command - query Kagi's enrichment indexes for web and news.
 
