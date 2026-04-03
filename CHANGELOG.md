@@ -7,6 +7,21 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 ## [Unreleased]
 
+## [0.4.1]
+
+### Added
+
+- Demo coverage for lens management, custom bangs, redirects, and saved-assistant selection with new recorded GIF assets
+
+### Changed
+
+- Synced the README, docs site, and bundled skill docs with the current CLI surface for settings management and Assistant/search flows
+- Improved transport and batch error visibility with lightweight tracing hooks and clearer parse diagnostics for debugging session-backed commands
+
+### Fixed
+
+- Redacted credential values from debug output so tokens do not leak through `Debug` formatting
+
 ## [0.4.0]
 
 ### Added
