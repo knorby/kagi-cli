@@ -116,7 +116,7 @@ flowchart TD
 
 - **Purpose:** Validate credentials work
 - **Network:** Yes (test search)
-- **Uses:** Primary credential (API if available, else session)
+- **Uses:** Primary credential per `[auth.preferred_auth]` setting (defaults to session token)
 - **No fallback:** Tests primary credential only
 
 #### `kagi auth set`
@@ -325,7 +325,7 @@ kagi auth set --session-token '...' --api-token '...'
 - ✅ Everything listed above
 
 **Smart behavior:**
-- `search`: Uses API (preferred), falls back to session if needed
+- `search`: Uses session (default), or API if `[auth.preferred_auth = "api"]` is set
 - `summarize` without `--subscriber`: Uses API
 - `summarize --subscriber`: Uses session
 - `quick`: Uses session

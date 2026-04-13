@@ -94,7 +94,7 @@ how to get it:
 3. click `Account` in the left sidebar
 4. in `Session Link`, click `Copy`
 
-![session-link tutorial](images/tutorials/session-link.gif)
+![session-link tutorial](images/demos/session-link.gif)
 
 ```bash
 kagi auth set --session-token 'https://kagi.com/search?token=...'
@@ -112,7 +112,7 @@ how to get it:
 4. go into `Open API Portal`
 5. under `API Token`, click `Generate New Token`
 
-![api token tutorial](images/tutorials/api-token.gif)
+![api token tutorial](images/demos/api-token.gif)
 
 ```bash
 export KAGI_API_TOKEN='...'
