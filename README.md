@@ -94,7 +94,7 @@ how to get it:
 3. click `Account` in the left sidebar
 4. in `Session Link`, click `Copy`
 
-![session-link tutorial](images/demos/session-link.gif)
+![session-link tutorial](images/tutorials/session-link.gif)
 
 ```bash
 kagi auth set --session-token 'https://kagi.com/search?token=...'
@@ -112,7 +112,7 @@ how to get it:
 4. go into `Open API Portal`
 5. under `API Token`, click `Generate New Token`
 
-![api token tutorial](images/demos/api-token.gif)
+![api token tutorial](images/tutorials/api-token.gif)
 
 ```bash
 export KAGI_API_TOKEN='...'
@@ -387,6 +387,10 @@ for the fuller install matrix and platform-specific setup, use the [installation
 - [quickstart guide](https://kagi.micr.dev/guides/quickstart)
 - [authentication guide](https://kagi.micr.dev/guides/authentication)
 - [workflows](https://kagi.micr.dev/guides/workflows)
+
+## contributing
+
+contributions are welcome. please open an issue or pull request on [github](https://github.com/Microck/kagi-cli). see the [issue templates](https://github.com/Microck/kagi-cli/issues/new/choose) for bug reports and feature requests.
 
 ## disclaimer
 
