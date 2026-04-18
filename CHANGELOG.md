@@ -10,12 +10,15 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 ### Added
 
 - Rust doc comments on all previously undocumented public functions across the crate
+- `timeout-minutes` guards on CI, release, coverage, and security workflows to prevent hung runs
+- Dependabot configuration for the npm wrapper package
 
 ### Fixed
 
 - Replaced `map_or` with `is_none_or` to resolve `clippy::unnecessary_map_or` lint
 - Corrected stale README badges, broken links, and missing documentation sections
 - Applied Clippy pedantic and nursery lint auto-fixes across the codebase
+- `persist-credentials: false` on all checkout steps to avoid stale token leakage
 
 ## [0.4.3]
 
