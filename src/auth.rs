@@ -20,7 +20,7 @@ pub enum CredentialKind {
 
 impl CredentialKind {
     /// Returns the string representation of this credential kind.
-    /// 
+    ///
     /// # Returns
     /// `"api-token"` or `"session-token"`.
     pub const fn as_str(self) -> &'static str {
@@ -39,7 +39,7 @@ pub enum CredentialSource {
 
 impl CredentialSource {
     /// Returns the string representation of this credential source.
-    /// 
+    ///
     /// # Returns
     /// `"env"` or `"config"`.
     pub const fn as_str(self) -> &'static str {
@@ -68,7 +68,7 @@ impl SearchAuthPreference {
     }
 
     /// Returns the string representation of this search auth preference.
-    /// 
+    ///
     /// # Returns
     /// `"session"` or `"api"`.
     pub const fn as_str(self) -> &'static str {
@@ -119,13 +119,13 @@ pub struct CredentialInventory {
 
 impl CredentialInventory {
     /// Resolves the appropriate credentials for a search request based on the auth requirement.
-    /// 
+    ///
     /// # Arguments
     /// * `requirement` - The authentication requirement (Base, Lens, or Filtered).
-    /// 
+    ///
     /// # Returns
     /// `SearchCredentials` with the primary and optional fallback session credential.
-    /// 
+    ///
     /// # Errors
     /// Returns `KagiError::Config` if no suitable credentials are available.
     pub fn resolve_for_search(
@@ -195,7 +195,7 @@ impl CredentialInventory {
     }
 
     /// Returns the preferred credential for status display, based on the search auth preference.
-    /// 
+    ///
     /// # Returns
     /// The preferred credential, or `None` if no credentials are configured.
     pub fn preferred_for_status(&self) -> Option<&Credential> {
@@ -229,10 +229,10 @@ pub struct ConfigAuthSnapshot {
 }
 
 /// Loads the credential inventory from the default config path and environment variables.
-/// 
+///
 /// # Returns
 /// A `CredentialInventory` with resolved API token, session token, and preferences.
-/// 
+///
 /// # Errors
 /// Returns `KagiError::Config` if the config file cannot be read or parsed,
 /// or if session token normalization fails.
@@ -291,10 +291,10 @@ fn load_credential_inventory_from_path(
 }
 
 /// Formats a human-readable status summary of the credential inventory.
-/// 
+///
 /// # Arguments
 /// * `inventory` - The credential inventory to summarize.
-/// 
+///
 /// # Returns
 /// A multi-line status string.
 pub fn format_status(inventory: &CredentialInventory) -> String {
@@ -320,10 +320,10 @@ pub fn format_status(inventory: &CredentialInventory) -> String {
 }
 
 /// Loads a snapshot of auth configuration from the default config path.
-/// 
+///
 /// # Returns
 /// A `ConfigAuthSnapshot` with raw config values.
-/// 
+///
 /// # Errors
 /// Returns `KagiError::Config` if the config file cannot be read or parsed.
 pub fn load_config_auth_snapshot() -> Result<ConfigAuthSnapshot, KagiError> {
@@ -391,13 +391,13 @@ fn build_session_credential(
 }
 
 /// Normalizes and validates an API token string.
-/// 
+///
 /// # Arguments
 /// * `input` - The raw API token input.
-/// 
+///
 /// # Returns
 /// The trimmed API token string.
-/// 
+///
 /// # Errors
 /// Returns `KagiError::Config` if the token is empty after trimming.
 pub fn normalize_api_token(input: &str) -> Result<String, KagiError> {
@@ -410,14 +410,14 @@ pub fn normalize_api_token(input: &str) -> Result<String, KagiError> {
 }
 
 /// Saves API and/or session credentials to the default config file.
-/// 
+///
 /// # Arguments
 /// * `api_token` - Optional API token to save.
 /// * `session_input` - Optional session token or session link URL to save.
-/// 
+///
 /// # Returns
 /// The updated `CredentialInventory` after saving.
-/// 
+///
 /// # Errors
 /// Returns `KagiError::Config` if neither credential is provided, or on I/O or serialization errors.
 pub fn save_credentials(
@@ -428,15 +428,15 @@ pub fn save_credentials(
 }
 
 /// Saves credentials with an optional search auth preference to the default config file.
-/// 
+///
 /// # Arguments
 /// * `api_token` - Optional API token to save.
 /// * `session_input` - Optional session token or session link URL to save.
 /// * `preferred_auth` - Optional search auth preference to set.
-/// 
+///
 /// # Returns
 /// The updated `CredentialInventory` after saving.
-/// 
+///
 /// # Errors
 /// Returns `KagiError::Config` if neither credential is provided, or on I/O or serialization errors.
 pub fn save_credentials_with_preference(
@@ -505,16 +505,16 @@ fn normalize_optional_session_token(input: Option<String>) -> Result<Option<Stri
 }
 
 /// Normalizes and validates a session token or session link URL.
-/// 
+///
 /// If the input is a URL, extracts the `token` query parameter.
 /// Otherwise, returns the trimmed raw value.
-/// 
+///
 /// # Arguments
 /// * `input` - The raw session token or session link URL.
-/// 
+///
 /// # Returns
 /// The normalized session token string.
-/// 
+///
 /// # Errors
 /// Returns `KagiError::Config` if the input is empty, the URL is invalid,
 /// or the URL does not contain a non-empty `token` parameter.
@@ -590,37 +590,60 @@ fn secure_config_permissions(_path: &Path) -> Result<(), KagiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::{Mutex, MutexGuard};
+    use tempfile::NamedTempFile;
 
-    fn unique_path() -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("time went backwards")
-            .as_nanos();
-        env::temp_dir().join(format!("kagi-auth-test-{nanos}.toml"))
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct ScopedEnvVar {
+        key: &'static str,
+        previous: Option<String>,
     }
 
-    fn set_env_var(key: &str, value: &str) {
-        unsafe { env::set_var(key, value) }
+    impl ScopedEnvVar {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = env::var(key).ok();
+            unsafe { env::set_var(key, value) }
+
+            Self { key, previous }
+        }
     }
 
-    fn remove_env_var(key: &str) {
-        unsafe { env::remove_var(key) }
+    impl Drop for ScopedEnvVar {
+        fn drop(&mut self) {
+            match self.previous.as_deref() {
+                Some(value) => unsafe { env::set_var(self.key, value) },
+                None => unsafe { env::remove_var(self.key) },
+            }
+        }
+    }
+
+    fn lock_env() -> MutexGuard<'static, ()> {
+        ENV_LOCK.lock().expect("env lock should not be poisoned")
+    }
+
+    fn temp_config_file() -> NamedTempFile {
+        NamedTempFile::new().expect("temporary config file should be created")
+    }
+
+    fn set_env_var(key: &'static str, value: &str) -> ScopedEnvVar {
+        ScopedEnvVar::set(key, value)
     }
 
     #[test]
     fn prefers_env_over_config_values() {
-        let path = unique_path();
+        let _env_guard = lock_env();
+        let path = temp_config_file();
         fs::write(
-            &path,
+            path.path(),
             "[auth]\napi_token = \"config-api\"\nsession_token = \"config-session\"\n",
         )
         .expect("write config");
 
-        set_env_var(API_TOKEN_ENV, "env-api");
-        set_env_var(SESSION_TOKEN_ENV, "env-session");
+        let _api_env = set_env_var(API_TOKEN_ENV, "env-api");
+        let _session_env = set_env_var(SESSION_TOKEN_ENV, "env-session");
 
-        let config = read_config_file(&path).expect("config parses");
+        let config = read_config_file(path.path()).expect("config parses");
 
         let inventory = CredentialInventory {
             api_token: read_env_credential(API_TOKEN_ENV)
@@ -658,7 +681,7 @@ mod tests {
                         })
                 }),
             search_preference: SearchAuthPreference::Session,
-            config_path: path.clone(),
+            config_path: path.path().to_path_buf(),
         };
 
         assert_eq!(inventory.api_token.unwrap().source, CredentialSource::Env);
@@ -666,10 +689,6 @@ mod tests {
             inventory.session_token.unwrap().source,
             CredentialSource::Env
         );
-
-        remove_env_var(API_TOKEN_ENV);
-        remove_env_var(SESSION_TOKEN_ENV);
-        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -796,10 +815,10 @@ mod tests {
 
     #[test]
     fn rejects_invalid_preferred_auth_value() {
-        let path = unique_path();
-        fs::write(&path, "[auth]\npreferred_auth = \"weird\"\n").expect("write config");
+        let path = temp_config_file();
+        fs::write(path.path(), "[auth]\npreferred_auth = \"weird\"\n").expect("write config");
 
-        let raw = fs::read_to_string(&path).expect("read config");
+        let raw = fs::read_to_string(path.path()).expect("read config");
         let config: ConfigFile = toml::from_str(&raw).expect("parse config");
         let error = config
             .auth
@@ -810,7 +829,6 @@ mod tests {
             .expect_err("invalid config should fail");
 
         assert!(error.to_string().contains("expected `session` or `api`"));
-        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -903,54 +921,50 @@ mod tests {
 
     #[test]
     fn load_config_auth_snapshot_normalizes_session_link_and_preference() {
-        let path = unique_path();
+        let path = temp_config_file();
         fs::write(
-            &path,
+            path.path(),
             "[auth]\npreferred_auth = \"api\"\nsession_token = \"https://kagi.com/search?token=session-from-link\"\n",
         )
         .expect("write config");
 
         let snapshot =
-            load_config_auth_snapshot_from_path(&path).expect("config snapshot should load");
+            load_config_auth_snapshot_from_path(path.path()).expect("config snapshot should load");
 
         assert_eq!(snapshot.search_preference, SearchAuthPreference::Api);
         assert_eq!(snapshot.session_token.as_deref(), Some("session-from-link"));
-
-        let _ = fs::remove_file(path);
     }
 
     #[test]
     fn save_credentials_preserves_existing_values_when_only_one_is_updated() {
-        let path = unique_path();
+        let path = temp_config_file();
         fs::write(
-            &path,
+            path.path(),
             "[auth]\napi_token = \"existing-api\"\nsession_token = \"existing-session\"\npreferred_auth = \"api\"\n",
         )
         .expect("write config");
 
         save_credentials_with_preference_to_path(
-            &path,
+            path.path(),
             None,
             Some("https://kagi.com/search?token=new-session"),
             None,
         )
         .expect("save should succeed");
         let snapshot =
-            load_config_auth_snapshot_from_path(&path).expect("config snapshot should load");
+            load_config_auth_snapshot_from_path(path.path()).expect("config snapshot should load");
 
         assert_eq!(snapshot.api_token.as_deref(), Some("existing-api"));
         assert_eq!(snapshot.session_token.as_deref(), Some("new-session"));
         assert_eq!(snapshot.search_preference, SearchAuthPreference::Api);
-
-        let _ = fs::remove_file(path);
     }
 
     #[test]
     fn save_credentials_updates_preference_when_requested() {
-        let path = unique_path();
+        let path = temp_config_file();
 
         let inventory = save_credentials_with_preference_to_path(
-            &path,
+            path.path(),
             Some("new-api"),
             Some("https://kagi.com/search?token=new-session"),
             Some(SearchAuthPreference::Api),
@@ -959,17 +973,19 @@ mod tests {
 
         assert_eq!(inventory.search_preference, SearchAuthPreference::Api);
 
-        let raw = fs::read_to_string(&path).expect("read saved config");
+        let raw = fs::read_to_string(path.path()).expect("read saved config");
         assert!(raw.contains("preferred_auth = \"api\""));
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
 
-            let mode = fs::metadata(&path).expect("metadata").permissions().mode() & 0o777;
+            let mode = fs::metadata(path.path())
+                .expect("metadata")
+                .permissions()
+                .mode()
+                & 0o777;
             assert_eq!(mode, 0o600);
         }
-
-        let _ = fs::remove_file(path);
     }
 }
