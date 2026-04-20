@@ -1,3 +1,9 @@
+//! Command-line interface definitions for kagi-cli.
+//!
+//! Uses `clap` to define the full CLI structure including subcommands
+//! (search, summarize, news, assistant, quick, etc.), global flags,
+//! and per-subcommand options.
+
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Clone, ValueEnum)]

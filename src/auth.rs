@@ -1,3 +1,9 @@
+//! Authentication and session management for the Kagi API.
+//!
+//! Handles loading API tokens from environment variables, config files,
+//! and the interactive authentication wizard. Provides session persistence
+//! via the filesystem.
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};

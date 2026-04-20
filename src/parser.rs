@@ -1,3 +1,9 @@
+//! HTML parsing for Kagi search result pages.
+//!
+//! Extracts structured [`SearchResult`] values from the HTML markup returned
+//! by Kagi's web search endpoint. Also parses assistant profiles, threads,
+//! custom bangs, and lens details from their respective HTML pages.
+
 use scraper::{Html, Selector};
 
 use crate::error::KagiError;
