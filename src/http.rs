@@ -157,10 +157,17 @@ fn build_url(base: &str, path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
     use super::{
         KAGI_BASE_URL_ENV, KAGI_NEWS_BASE_URL_ENV, KAGI_TRANSLATE_BASE_URL_ENV, kagi_news_url,
         kagi_translate_url, kagi_url,
     };
+
+    /// Serializes tests that mutate process-wide env vars, since `cargo test`
+    /// runs tests in parallel by default and `std::env::set_var` is not
+    /// thread-safe.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn set_env_var(key: &str, value: &str) {
         unsafe { std::env::set_var(key, value) }
@@ -172,6 +179,8 @@ mod tests {
 
     #[test]
     fn builds_default_urls() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
         remove_env_var(KAGI_BASE_URL_ENV);
         remove_env_var(KAGI_NEWS_BASE_URL_ENV);
         remove_env_var(KAGI_TRANSLATE_BASE_URL_ENV);
@@ -189,6 +198,8 @@ mod tests {
 
     #[test]
     fn honors_base_url_overrides() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
         set_env_var(KAGI_BASE_URL_ENV, "http://127.0.0.1:9000/");
         set_env_var(KAGI_NEWS_BASE_URL_ENV, "http://127.0.0.1:9001/");
         set_env_var(KAGI_TRANSLATE_BASE_URL_ENV, "http://127.0.0.1:9002/");
