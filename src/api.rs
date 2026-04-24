@@ -3365,17 +3365,17 @@ fn parse_assistant_thread_delete_stream(
 }
 
 fn assistant_thread_list_html(payload: &Value) -> Result<&str, KagiError> {
-    let html = payload
-        .get("html")
-        .ok_or_else(|| KagiError::Parse("assistant thread list payload missing html".to_string()))?;
+    let html = payload.get("html").ok_or_else(|| {
+        KagiError::Parse("assistant thread list payload missing html".to_string())
+    })?;
 
     if let Some(html) = html.as_str() {
         return Ok(html);
     }
 
-    html.get("html")
-        .and_then(Value::as_str)
-        .ok_or_else(|| KagiError::Parse("assistant thread list payload missing html string".to_string()))
+    html.get("html").and_then(Value::as_str).ok_or_else(|| {
+        KagiError::Parse("assistant thread list payload missing html string".to_string())
+    })
 }
 
 fn assistant_thread_list_next_cursor(payload: &Value) -> Option<String> {
@@ -4166,14 +4166,13 @@ mod tests {
         fake_header_map, finalize_translate_text_response, normalize_ask_page_question,
         normalize_ask_page_url, normalize_assistant_query, normalize_assistant_thread_id,
         normalize_aux_quality, normalize_custom_bang_trigger, normalize_redirect_rule,
-        parse_assistant_thread_cursor,
         normalize_subscriber_summary_input, normalize_subscriber_summary_length,
         normalize_subscriber_summary_type, parse_assistant_prompt_stream,
-        parse_assistant_thread_delete_stream, parse_assistant_thread_list_stream,
-        parse_assistant_thread_open_stream, parse_content_disposition_filename,
-        parse_subscriber_summarize_stream, parse_translate_detect_value,
-        resolve_custom_assistant_ref, resolve_custom_bang_ref, resolve_lens_ref,
-        resolve_news_category, resolve_redirect_ref, resolve_translate_bootstrap,
+        parse_assistant_thread_cursor, parse_assistant_thread_delete_stream,
+        parse_assistant_thread_list_stream, parse_assistant_thread_open_stream,
+        parse_content_disposition_filename, parse_subscriber_summarize_stream,
+        parse_translate_detect_value, resolve_custom_assistant_ref, resolve_custom_bang_ref,
+        resolve_lens_ref, resolve_news_category, resolve_redirect_ref, resolve_translate_bootstrap,
         should_retry_translate_bootstrap, text_contains_news_filter_keyword,
         validate_translate_request,
     };
@@ -4206,15 +4205,34 @@ mod tests {
         Arc,
         atomic::{AtomicBool, Ordering},
     };
-
-    fn set_env_var(key: &str, value: &str) {
-        unsafe { std::env::set_var(key, value) }
-    }
-
-    fn remove_env_var(key: &str) {
-        unsafe { std::env::remove_var(key) }
-    }
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct ScopedEnvVar {
+        key: &'static str,
+        previous: Option<String>,
+    }
+
+    impl ScopedEnvVar {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = std::env::var(key).ok();
+            unsafe { std::env::set_var(key, value) }
+
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for ScopedEnvVar {
+        fn drop(&mut self) {
+            match self.previous.as_deref() {
+                Some(value) => unsafe { std::env::set_var(self.key, value) },
+                None => unsafe { std::env::remove_var(self.key) },
+            }
+        }
+    }
+
+    fn set_env_var(key: &'static str, value: &str) -> ScopedEnvVar {
+        ScopedEnvVar::set(key, value)
+    }
 
     fn sample_translate_request() -> TranslateCommandRequest {
         TranslateCommandRequest {
@@ -4672,11 +4690,10 @@ mod tests {
                 ));
         });
 
-        set_env_var("KAGI_BASE_URL", &server.base_url());
+        let _base_url_env = set_env_var("KAGI_BASE_URL", &server.base_url());
         let response = execute_assistant_thread_list("test-session")
             .await
             .expect("thread list should succeed");
-        remove_env_var("KAGI_BASE_URL");
 
         assert_eq!(response.meta.trace.as_deref(), Some("trace-list"));
         assert_eq!(response.threads.len(), 2);

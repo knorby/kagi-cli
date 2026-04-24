@@ -471,7 +471,11 @@ fn assistant_thread_list_paginates_with_cursor_id() {
 
     let tempdir = TempDir::new().expect("tempdir");
     let env = session_env(&server);
-    let output = run_kagi(&["assistant", "thread", "list"], &env_refs(&env), tempdir.path());
+    let output = run_kagi(
+        &["assistant", "thread", "list"],
+        &env_refs(&env),
+        tempdir.path(),
+    );
 
     assert_success(&output);
     let body: Value = serde_json::from_slice(&output.stdout).expect("json output should parse");

@@ -275,6 +275,8 @@ kagi assistant thread list
 kagi assistant thread export <THREAD_ID>
 ```
 
+`kagi assistant thread list` automatically follows Kagi's pagination cursor so large chat histories are returned in one response.
+
 manage custom assistants:
 
 ```bash
