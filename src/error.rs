@@ -29,6 +29,10 @@ pub enum KagiError {
     #[error("configuration error: {0}")]
     Config(String),
 
+    /// Writing to stdout or stderr failed.
+    #[error("io error: {0}")]
+    Io(String),
+
     /// A batch operation error (parallel search failures).
     #[error("batch error: {0}")]
     Batch(String),

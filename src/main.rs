@@ -48,6 +48,7 @@ use crate::types::{
 };
 use serde_json::Value;
 use std::env;
+use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Semaphore;
@@ -72,6 +73,9 @@ struct SearchRequestOptions {
 async fn main() {
     init_tracing();
     if let Err(error) = run().await {
+        if is_broken_pipe_error(&error) {
+            std::process::exit(0);
+        }
         error!(error = %error, "kagi exited with error");
         eprintln!("{error}");
         std::process::exit(1);
@@ -243,8 +247,7 @@ async fn run() -> Result<(), KagiError> {
                                 let response =
                                     execute_assistant_thread_export(&export.thread_id, &token)
                                         .await?;
-                                println!("{}", response.markdown);
-                                Ok(())
+                                write_stdout_line(&response.markdown)
                             }
                             AssistantThreadExportFormat::Json => {
                                 let response =
@@ -686,14 +689,16 @@ fn print_completion(shell: CompletionShell) {
 
 fn run_auth_status() -> Result<(), KagiError> {
     let inventory = load_credential_inventory()?;
-    println!("{}", format_status(&inventory));
-    Ok(())
+    write_stdout_line(&format_status(&inventory))
 }
 
 fn run_auth_set(args: AuthSetArgs) -> Result<(), KagiError> {
     let inventory = save_credentials(args.api_token.as_deref(), args.session_token.as_deref())?;
-    println!("saved credentials to {}", inventory.config_path.display());
-    println!("{}", format_status(&inventory));
+    write_stdout_line(&format!(
+        "saved credentials to {}",
+        inventory.config_path.display()
+    ))?;
+    write_stdout_line(&format_status(&inventory))?;
     Ok(())
 }
 
@@ -705,12 +710,11 @@ async fn run_auth_check() -> Result<(), KagiError> {
     let selected_source = credentials.primary.source;
     validate_credential(&credentials.primary).await?;
 
-    println!(
+    write_stdout_line(&format!(
         "auth check passed: {} ({})",
         selected_kind.as_str(),
         selected_source.as_str()
-    );
-    Ok(())
+    ))
 }
 
 async fn execute_search_request(
@@ -900,15 +904,13 @@ fn search_auth_requirement(request: &search::SearchRequest) -> SearchAuthRequire
 fn print_json<T: serde::Serialize>(value: &T) -> Result<(), KagiError> {
     let output = serde_json::to_string_pretty(value)
         .map_err(|error| KagiError::Parse(format!("failed to serialize JSON output: {error}")))?;
-    println!("{output}");
-    Ok(())
+    write_stdout_line(&output)
 }
 
 fn print_compact_json<T: serde::Serialize>(value: &T) -> Result<(), KagiError> {
     let output = serde_json::to_string(value)
         .map_err(|error| KagiError::Parse(format!("failed to serialize JSON output: {error}")))?;
-    println!("{output}");
-    Ok(())
+    write_stdout_line(&output)
 }
 
 fn print_quick_response(
@@ -917,15 +919,9 @@ fn print_quick_response(
     use_color: bool,
 ) -> Result<(), KagiError> {
     match format {
-        "pretty" => {
-            println!("{}", format_quick_pretty(response, use_color));
-            Ok(())
-        }
+        "pretty" => write_stdout_line(&format_quick_pretty(response, use_color)),
         "compact" => print_compact_json(response),
-        "markdown" => {
-            println!("{}", format_quick_markdown(response));
-            Ok(())
-        }
+        "markdown" => write_stdout_line(&format_quick_markdown(response)),
         _ => print_json(response),
     }
 }
@@ -937,15 +933,36 @@ fn print_assistant_response(
 ) -> Result<(), KagiError> {
     match format {
         AssistantOutputFormat::Pretty => {
-            println!("{}", format_assistant_pretty(response, use_color));
-            Ok(())
+            write_stdout_line(&format_assistant_pretty(response, use_color))
         }
         AssistantOutputFormat::Compact => print_compact_json(response),
-        AssistantOutputFormat::Markdown => {
-            println!("{}", format_assistant_markdown(response));
-            Ok(())
-        }
+        AssistantOutputFormat::Markdown => write_stdout_line(&format_assistant_markdown(response)),
         AssistantOutputFormat::Json => print_json(response),
+    }
+}
+
+fn write_stdout_line(output: &str) -> Result<(), KagiError> {
+    let mut stdout = io::stdout().lock();
+    writeln!(stdout, "{output}").map_err(map_stdout_error)
+}
+
+fn write_stdout(output: &str) -> Result<(), KagiError> {
+    let mut stdout = io::stdout().lock();
+    stdout
+        .write_all(output.as_bytes())
+        .map_err(map_stdout_error)
+}
+
+fn map_stdout_error(error: io::Error) -> KagiError {
+    KagiError::Io(error.to_string())
+}
+
+fn is_broken_pipe_error(error: &KagiError) -> bool {
+    match error {
+        KagiError::Io(message) => {
+            message.contains("Broken pipe") || message.contains("broken pipe")
+        }
+        _ => false,
     }
 }
 
@@ -1028,8 +1045,7 @@ async fn run_search(
         })?,
     };
 
-    println!("{output}");
-    Ok(())
+    write_stdout_line(&output)
 }
 
 fn format_pretty_response(response: &SearchResponse, use_color: bool) -> String {
@@ -1251,9 +1267,9 @@ async fn run_batch_search(
         });
 
         if format == "compact" {
-            println!("{}", serde_json::to_string(&results_json)?);
+            write_stdout_line(&serde_json::to_string(&results_json)?)?;
         } else {
-            println!("{}", serde_json::to_string_pretty(&results_json)?);
+            write_stdout_line(&serde_json::to_string_pretty(&results_json)?)?;
         }
     } else {
         // For human-readable formats, output with headers
@@ -1266,9 +1282,9 @@ async fn run_batch_search(
                     KagiError::Parse(format!("failed to serialize search response: {error}"))
                 })?,
             };
-            println!("=== Results for: {query} ===");
-            println!("{output}");
-            println!();
+            write_stdout_line(&format!("=== Results for: {query} ==="))?;
+            write_stdout_line(&output)?;
+            write_stdout("\n")?;
         }
     }
 
