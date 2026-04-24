@@ -1,3 +1,9 @@
+//! Kagi "quick answer" API client.
+//!
+//! Provides the [`quick_answer`] function for fetching concise answers from
+//! the Kagi Quick Answer endpoint. Returns structured [`QuickResponse`] values
+//! with references and metadata.
+
 use reqwest::{Client, StatusCode, Url, header};
 use scraper::Html;
 use serde::Deserialize;

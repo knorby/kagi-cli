@@ -1,3 +1,9 @@
+//! Kagi search API client.
+//!
+//! Provides the [`search`] function for querying the Kagi HTML search endpoint
+//! and parsing results into structured [`SearchResponse`] values. Supports
+//! pagination, lenses, region selection, and time filtering.
+
 use reqwest::{Client, StatusCode, header};
 use serde::Deserialize;
 use tracing::debug;
@@ -17,6 +23,7 @@ const UNAUTHENTICATED_MARKERS: [&str; 3] = [
 ];
 
 #[derive(Debug, Clone)]
+/// Parameters for a Kagi search API request.
 pub struct SearchRequest {
     pub query: String,
     pub lens: Option<String>,

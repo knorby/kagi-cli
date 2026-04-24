@@ -1,3 +1,9 @@
+//! Authentication and session management for the Kagi API.
+//!
+//! Handles loading API tokens from environment variables, config files,
+//! and the interactive authentication wizard. Provides session persistence
+//! via the filesystem.
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,6 +19,7 @@ pub const API_TOKEN_ENV: &str = "KAGI_API_TOKEN";
 pub const SESSION_TOKEN_ENV: &str = "KAGI_SESSION_TOKEN";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The type of authentication credential.
 pub enum CredentialKind {
     ApiToken,
     SessionToken,
@@ -32,6 +39,7 @@ impl CredentialKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Where a credential was loaded from.
 pub enum CredentialSource {
     Env,
     Config,
@@ -51,6 +59,7 @@ impl CredentialSource {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Preferred authentication method for search operations.
 pub enum SearchAuthPreference {
     Session,
     Api,
@@ -80,6 +89,7 @@ impl SearchAuthPreference {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+/// A resolved authentication credential with its kind and source.
 pub struct Credential {
     pub kind: CredentialKind,
     pub source: CredentialSource,
@@ -97,12 +107,14 @@ impl std::fmt::Debug for Credential {
 }
 
 #[derive(Debug, Clone)]
+/// Credentials resolved for a specific search request, with optional fallback.
 pub struct SearchCredentials {
     pub primary: Credential,
     pub fallback_session: Option<Credential>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Authentication requirement level for different search types.
 pub enum SearchAuthRequirement {
     Base,
     Lens,
@@ -110,6 +122,7 @@ pub enum SearchAuthRequirement {
 }
 
 #[derive(Debug, Clone)]
+/// All available credentials and preferences loaded from config and environment.
 pub struct CredentialInventory {
     pub api_token: Option<Credential>,
     pub session_token: Option<Credential>,
@@ -221,6 +234,7 @@ struct AuthConfig {
 }
 
 #[derive(Debug, Clone)]
+/// Snapshot of the current authentication configuration for display purposes.
 pub struct ConfigAuthSnapshot {
     pub config_path: PathBuf,
     pub api_token: Option<String>,
@@ -486,13 +500,7 @@ fn save_credentials_with_preference_to_path(
             config_path.display()
         ))
     })?;
-    fs::write(config_path, raw).map_err(|error| {
-        KagiError::Config(format!(
-            "failed to write config file {}: {error}",
-            config_path.display()
-        ))
-    })?;
-    secure_config_permissions(config_path)?;
+    write_config_file_atomically(config_path, &raw)?;
 
     load_credential_inventory_from_path(config_path)
 }
@@ -567,6 +575,37 @@ fn read_config_file(path: &Path) -> Result<ConfigFile, KagiError> {
             path.display()
         ))
     })
+}
+
+fn write_config_file_atomically(path: &Path, raw: &str) -> Result<(), KagiError> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .map(|value| value.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "kagi-config".to_string());
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let temp_path = parent.join(format!(".{file_name}.tmp-{}-{nonce}", std::process::id()));
+
+    fs::write(&temp_path, raw).map_err(|error| {
+        KagiError::Config(format!(
+            "failed to write temporary config file {}: {error}",
+            temp_path.display()
+        ))
+    })?;
+    secure_config_permissions(&temp_path)?;
+
+    if let Err(error) = fs::rename(&temp_path, path) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(KagiError::Config(format!(
+            "failed to replace config file {}: {error}",
+            path.display()
+        )));
+    }
+
+    secure_config_permissions(path)
 }
 
 #[cfg(unix)]

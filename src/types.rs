@@ -1,9 +1,23 @@
+//! API request and response types for Kagi services.
+//!
+//! This module defines the data structures used across all Kagi API endpoints:
+//! search, summarization, news, assistant, lenses, and translation.
+//!
+//! Types are grouped by feature:
+//! - **Search**: [`SearchResult`], [`SearchResponse`]
+//! - **Summarization**: [`SummarizeRequest`], [`SummarizeResponse`], [`SubscriberSummarizeRequest`], [`SubscriberSummarizeResponse`]
+//! - **News**: [`NewsLatestBatch`], [`NewsCategoriesResponse`], [`NewsStoriesResponse`], [`NewsChaosResponse`]
+//! - **Assistant**: [`AssistantPromptRequest`], [`AssistantPromptResponse`], [`AssistantThread`], [`AssistantMessage`]
+//! - **Lenses**: [`LensSummary`], [`LensDetails`]
+//! - **Translation**: [`TranslateRequest`], [`TranslateResponse`]
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A single search result from the Kagi search API.
 pub struct SearchResult {
     pub t: u8,
     #[serde(default)]
@@ -17,11 +31,13 @@ pub struct SearchResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Wrapper for a list of search results.
 pub struct SearchResponse {
     pub data: Vec<SearchResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Metadata returned with most Kagi API responses (request ID, node, latency).
 pub struct ApiMeta {
     pub id: String,
     pub node: String,
@@ -29,6 +45,7 @@ pub struct ApiMeta {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Request body for the public API summarization endpoint.
 pub struct SummarizeRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
@@ -45,18 +62,21 @@ pub struct SummarizeRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// The summarization output from a public API request.
 pub struct Summarization {
     pub output: String,
     pub tokens: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response from the public API summarization endpoint.
 pub struct SummarizeResponse {
     pub meta: ApiMeta,
     pub data: Summarization,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+/// Metadata for the subscriber-mode summarization endpoint.
 pub struct SubscriberSummarizeMeta {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
@@ -65,6 +85,7 @@ pub struct SubscriberSummarizeMeta {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Request body for the subscriber-mode summarization endpoint.
 pub struct SubscriberSummarizeRequest {
     pub url: Option<String>,
     pub text: Option<String>,
@@ -77,6 +98,7 @@ pub struct SubscriberSummarizeRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// The full summarization result from the subscriber endpoint.
 pub struct SubscriberSummarization {
     pub id: String,
     pub thread_id: String,
@@ -91,12 +113,14 @@ pub struct SubscriberSummarization {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response from the subscriber-mode summarization endpoint.
 pub struct SubscriberSummarizeResponse {
     pub meta: SubscriberSummarizeMeta,
     pub data: SubscriberSummarization,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Metadata about the latest processed news batch.
 pub struct NewsLatestBatch {
     #[serde(rename = "createdAt")]
     pub created_at: String,
@@ -118,6 +142,7 @@ pub struct NewsLatestBatch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Metadata for a news category (ID, display name, language).
 pub struct NewsCategoryMetadata {
     #[serde(rename = "categoryId")]
     pub category_id: String,
@@ -132,11 +157,13 @@ pub struct NewsCategoryMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A list of news category metadata entries.
 pub struct NewsCategoryMetadataList {
     pub categories: Vec<NewsCategoryMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A category within a news batch (with read/cluster counts).
 pub struct NewsBatchCategory {
     pub id: String,
     #[serde(rename = "categoryId")]
@@ -153,6 +180,7 @@ pub struct NewsBatchCategory {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// All categories for a specific news batch.
 pub struct NewsBatchCategories {
     #[serde(rename = "batchId")]
     pub batch_id: String,
@@ -164,6 +192,7 @@ pub struct NewsBatchCategories {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A news category with resolved metadata.
 pub struct NewsResolvedCategory {
     pub id: String,
     pub category_id: String,
@@ -177,12 +206,14 @@ pub struct NewsResolvedCategory {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response containing the latest batch and its categories.
 pub struct NewsCategoriesResponse {
     pub latest_batch: NewsLatestBatch,
     pub categories: Vec<NewsResolvedCategory>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A single category payload within news stories.
 pub struct NewsStoriesPayload {
     #[serde(rename = "batchId")]
     pub batch_id: String,
@@ -201,6 +232,7 @@ pub struct NewsStoriesPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response containing news stories for a category.
 pub struct NewsStoriesResponse {
     pub latest_batch: NewsLatestBatch,
     pub category: NewsResolvedCategory,
@@ -214,6 +246,7 @@ pub struct NewsStoriesResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// The Kagi News "chaos index" value and description.
 pub struct NewsChaos {
     #[serde(rename = "chaosIndex")]
     pub chaos_index: u64,
@@ -224,12 +257,14 @@ pub struct NewsChaos {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response containing the chaos index.
 pub struct NewsChaosResponse {
     pub latest_batch: NewsLatestBatch,
     pub chaos: NewsChaos,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A single filter preset entry (id, label, keywords).
 pub struct NewsFilterPresetListEntry {
     pub id: String,
     pub label: String,
@@ -237,12 +272,14 @@ pub struct NewsFilterPresetListEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response listing available news filter presets.
 pub struct NewsFilterPresetListResponse {
     pub language: String,
     pub presets: Vec<NewsFilterPresetListEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Summary of active content filter settings for news.
 pub struct NewsContentFilterSummary {
     pub mode: String,
     pub scope: String,
@@ -253,12 +290,14 @@ pub struct NewsContentFilterSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Content filter summary for a single news story.
 pub struct NewsStoryContentFilterSummary {
     pub mode: String,
     pub matched_keywords: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+/// Metadata returned with assistant API responses.
 pub struct AssistantMeta {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
@@ -267,6 +306,7 @@ pub struct AssistantMeta {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Request body for the assistant prompt endpoint.
 pub struct AssistantPromptRequest {
     pub query: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -284,12 +324,14 @@ pub struct AssistantPromptRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Request body for the "ask about a page" endpoint.
 pub struct AskPageRequest {
     pub url: String,
     pub question: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A conversation thread in the Kagi Assistant.
 pub struct AssistantThread {
     pub id: String,
     pub title: String,
@@ -305,6 +347,7 @@ pub struct AssistantThread {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A single message within an assistant thread.
 pub struct AssistantMessage {
     pub id: String,
     pub thread_id: String,
@@ -332,6 +375,7 @@ pub struct AssistantMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response from the assistant prompt endpoint.
 pub struct AssistantPromptResponse {
     pub meta: AssistantMeta,
     pub thread: AssistantThread,
@@ -339,12 +383,14 @@ pub struct AssistantPromptResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Source information for an "ask about a page" query.
 pub struct AskPageSource {
     pub url: String,
     pub question: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response from the "ask about a page" endpoint.
 pub struct AskPageResponse {
     pub meta: AssistantMeta,
     pub source: AskPageSource,
@@ -353,6 +399,7 @@ pub struct AskPageResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A summary view of an assistant thread (for listing).
 pub struct AssistantThreadSummary {
     pub id: String,
     pub title: String,
@@ -365,6 +412,7 @@ pub struct AssistantThreadSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Pagination info for thread list responses.
 pub struct AssistantThreadPagination {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -375,6 +423,7 @@ pub struct AssistantThreadPagination {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response listing assistant threads.
 pub struct AssistantThreadListResponse {
     pub meta: AssistantMeta,
     #[serde(default)]
@@ -384,6 +433,7 @@ pub struct AssistantThreadListResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response when opening a specific assistant thread.
 pub struct AssistantThreadOpenResponse {
     pub meta: AssistantMeta,
     #[serde(default)]
@@ -394,11 +444,13 @@ pub struct AssistantThreadOpenResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response confirming thread deletion.
 pub struct AssistantThreadDeleteResponse {
     pub deleted_thread_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response containing an exported thread as markdown.
 pub struct AssistantThreadExportResponse {
     pub thread_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -407,6 +459,7 @@ pub struct AssistantThreadExportResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Summary of an assistant profile.
 pub struct AssistantProfileSummary {
     pub id: String,
     pub name: String,
@@ -421,6 +474,7 @@ pub struct AssistantProfileSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Detailed view of an assistant profile configuration.
 pub struct AssistantProfileDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile_id: Option<String>,
@@ -436,6 +490,7 @@ pub struct AssistantProfileDetails {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for creating a new assistant profile.
 pub struct AssistantProfileCreateRequest {
     pub name: String,
     pub bang_trigger: Option<String>,
@@ -447,6 +502,7 @@ pub struct AssistantProfileCreateRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for updating an existing assistant profile.
 pub struct AssistantProfileUpdateRequest {
     pub target: String,
     pub name: Option<String>,
@@ -459,6 +515,7 @@ pub struct AssistantProfileUpdateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Summary of a Kagi search lens.
 pub struct LensSummary {
     pub id: String,
     pub name: String,
@@ -475,6 +532,7 @@ pub struct LensSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Detailed configuration of a Kagi search lens.
 pub struct LensDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
@@ -498,6 +556,7 @@ pub struct LensDetails {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for creating a new Kagi lens.
 pub struct LensCreateRequest {
     pub name: String,
     pub included_sites: Option<String>,
@@ -517,6 +576,7 @@ pub struct LensCreateRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for updating an existing Kagi lens.
 pub struct LensUpdateRequest {
     pub target: String,
     pub name: Option<String>,
@@ -537,6 +597,7 @@ pub struct LensUpdateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Summary view of a custom bang shortcut.
 pub struct CustomBangSummary {
     pub id: String,
     pub name: String,
@@ -546,6 +607,7 @@ pub struct CustomBangSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Detailed view of a custom bang shortcut.
 pub struct CustomBangDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bang_id: Option<String>,
@@ -562,6 +624,7 @@ pub struct CustomBangDetails {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for creating a new custom bang.
 pub struct CustomBangCreateRequest {
     pub name: String,
     pub trigger: String,
@@ -576,6 +639,7 @@ pub struct CustomBangCreateRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for updating an existing custom bang.
 pub struct CustomBangUpdateRequest {
     pub target: String,
     pub name: Option<String>,
@@ -591,6 +655,7 @@ pub struct CustomBangUpdateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Summary view of a URL redirect rule.
 pub struct RedirectRuleSummary {
     pub id: String,
     pub rule: String,
@@ -599,6 +664,7 @@ pub struct RedirectRuleSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Detailed view of a URL redirect rule.
 pub struct RedirectRuleDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rule_id: Option<String>,
@@ -608,28 +674,33 @@ pub struct RedirectRuleDetails {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for creating a new redirect rule.
 pub struct RedirectRuleCreateRequest {
     pub rule: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for updating an existing redirect rule.
 pub struct RedirectRuleUpdateRequest {
     pub target: String,
     pub rule: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response confirming resource deletion.
 pub struct DeletedResourceResponse {
     pub id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response confirming a resource state toggle.
 pub struct ToggleResourceResponse {
     pub id: String,
     pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Request body for the FastGPT quick-answer endpoint.
 pub struct FastGptRequest {
     pub query: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -639,6 +710,7 @@ pub struct FastGptRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A web reference cited in a FastGPT answer.
 pub struct Reference {
     pub title: String,
     pub snippet: String,
@@ -646,6 +718,7 @@ pub struct Reference {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A single FastGPT answer with references.
 pub struct FastGptAnswer {
     pub output: String,
     pub tokens: u64,
@@ -654,23 +727,27 @@ pub struct FastGptAnswer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response from the FastGPT endpoint.
 pub struct FastGptResponse {
     pub meta: ApiMeta,
     pub data: FastGptAnswer,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response from the web/news enrichment endpoint.
 pub struct EnrichResponse {
     pub meta: ApiMeta,
     pub data: Vec<SearchResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A single entry from the Small Web feed.
 pub struct SmallWebFeed {
     pub xml: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+/// Metadata for a quick-answer response.
 pub struct QuickMeta {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
@@ -679,6 +756,7 @@ pub struct QuickMeta {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A message in a quick-answer conversation.
 pub struct QuickMessage {
     pub id: String,
     pub thread_id: String,
@@ -690,6 +768,7 @@ pub struct QuickMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A single reference item in a quick answer.
 pub struct QuickReferenceItem {
     pub index: usize,
     pub title: String,
@@ -701,6 +780,7 @@ pub struct QuickReferenceItem {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+/// Collection of reference items for a quick answer.
 pub struct QuickReferenceCollection {
     #[serde(default)]
     pub markdown: String,
@@ -709,6 +789,7 @@ pub struct QuickReferenceCollection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response from the quick-answer endpoint.
 pub struct QuickResponse {
     pub meta: QuickMeta,
     pub query: String,
@@ -721,6 +802,7 @@ pub struct QuickResponse {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Request body for the translate endpoint.
 pub struct TranslateCommandRequest {
     pub text: String,
     pub from: String,
@@ -748,6 +830,7 @@ pub struct TranslateCommandRequest {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+/// State of a translation option (enabled/disabled).
 pub struct TranslateOptionState {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub formality: Option<String>,
@@ -764,18 +847,21 @@ pub struct TranslateOptionState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Bootstrap metadata for translation initialization.
 pub struct TranslateBootstrapMetadata {
     pub method: String,
     pub authenticated: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A warning returned during translation.
 pub struct TranslateWarning {
     pub section: String,
     pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// An alternative detected language candidate.
 pub struct TranslateDetectedLanguageAlternative {
     pub iso: String,
     pub label: String,
@@ -786,6 +872,7 @@ pub struct TranslateDetectedLanguageAlternative {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Detected source language with confidence info.
 pub struct TranslateDetectedLanguage {
     pub iso: String,
     pub label: String,
@@ -798,6 +885,7 @@ pub struct TranslateDetectedLanguage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response containing the translated text.
 pub struct TranslateTextResponse {
     pub translation: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -811,6 +899,7 @@ pub struct TranslateTextResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A single alternative translation variant.
 pub struct AlternativeTranslationElement {
     pub translation: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -818,6 +907,7 @@ pub struct AlternativeTranslationElement {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response containing alternative translations.
 pub struct AlternativeTranslationsResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub original_description: Option<String>,
@@ -826,6 +916,7 @@ pub struct AlternativeTranslationsResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response containing word-level alignment data.
 pub struct TextAlignmentsResponse {
     #[serde(default)]
     pub source_blocks: Vec<Value>,
@@ -840,6 +931,7 @@ pub struct TextAlignmentsResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A translation suggestion for a word or phrase.
 pub struct TranslationSuggestion {
     pub id: String,
     pub label: String,
@@ -855,12 +947,14 @@ pub struct TranslationSuggestion {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Response containing translation suggestions.
 pub struct TranslationSuggestionsResponse {
     #[serde(default)]
     pub suggestions: Vec<TranslationSuggestion>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A variation of a word insight entry.
 pub struct WordInsightVariation {
     pub text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -868,6 +962,7 @@ pub struct WordInsightVariation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Detailed insight about a translated word.
 pub struct WordInsight {
     pub id: String,
     pub original_text: String,
@@ -877,6 +972,7 @@ pub struct WordInsight {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Response containing word insights.
 pub struct WordInsightsResponse {
     #[serde(default)]
     pub insights: Vec<WordInsight>,
@@ -885,6 +981,7 @@ pub struct WordInsightsResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Full response from the translate endpoint.
 pub struct TranslateResponse {
     pub bootstrap: TranslateBootstrapMetadata,
     pub detected_language: TranslateDetectedLanguage,

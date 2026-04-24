@@ -1,6 +1,6 @@
 [package]
 name = "kagi"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2024"
 description = "Agent-native CLI for Kagi subscribers with JSON-first search output"
 license = "MIT"
@@ -24,8 +24,8 @@ exclude = [
 
 [dependencies]
 clap = { version = "4.6.0", features = ["derive"] }
-clap_complete = "4.6.0"
-cliclack = "0.5.2"
+clap_complete = "4.6.2"
+cliclack = "0.5.4"
 console = "0.16.3"
 ctrlc = "3.5.2"
 reqwest = { version = "0.12.15", default-features = false, features = ["json", "rustls-tls"] }
@@ -33,8 +33,8 @@ scraper = "0.26.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 thiserror = "2.0.18"
-tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
-toml = "1.1.1"
+tokio = { version = "1.51.1", features = ["macros", "rt-multi-thread"] }
+toml = "1.1.2"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
