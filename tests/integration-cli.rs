@@ -465,7 +465,7 @@ fn assistant_thread_list_paginates_with_cursor_id() {
             .body(concat!(
                 "hi:{\"v\":\"test\",\"trace\":\"trace-list\"}\0\n",
                 "tags.json:[]\0\n",
-                "thread_list.html:{\"html\":\"<div class=\\\"hide-if-no-threads\\\"><ul class=\\\"thread-list\\\"><li class=\\\"thread\\\" data-code=\\\"thread-2\\\" data-saved=\\\"false\\\" data-public=\\\"false\\\" data-tags='[]' data-snippet=\\\"Second snippet\\\"><a href=\\\"/assistant/thread-2\\\"><div class=\\\"title\\\">Second Thread</div><div class=\\\"excerpt\\\">Second snippet</div></a></li></ul></div>\",\"next_cursor\":null,\"has_more\":false,\"count\":1,\"total_counts\":{\"all\":2}}\0\n"
+                "thread_list.html:{\"html\":\"<div class=\\\"hide-if-no-threads\\\"><ul class=\\\"thread-list\\\"><li class=\\\"thread\\\" data-code=\\\"thread-2\\\" data-saved=\\\"false\\\" data-public=\\\"false\\\" data-tags='[]' data-snippet=\\\"Second snippet\\\"><a href=\\\"/assistant/thread-2\\\"><div class=\\\"title\\\">Second Thread</div><div class=\\\"excerpt\\\">Second snippet</div></a></li></ul></div>\",\"next_cursor\":null,\"has_more\":false,\"count\":1,\"total_counts\":null}\0\n"
             ));
     });
 
@@ -483,4 +483,5 @@ fn assistant_thread_list_paginates_with_cursor_id() {
     assert_eq!(body["threads"][0]["id"], "thread-1");
     assert_eq!(body["threads"][1]["id"], "thread-2");
     assert_eq!(body["pagination"]["count"], 2);
+    assert_eq!(body["pagination"]["total_counts"]["all"], 2);
 }

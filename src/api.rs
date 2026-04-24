@@ -509,6 +509,7 @@ pub async fn execute_assistant_thread_list(
     let mut last_response;
     let mut all_threads = Vec::new();
     let mut cursor = None;
+    let mut merged_total_counts = HashMap::new();
 
     loop {
         let mut payload = Map::new();
@@ -531,6 +532,11 @@ pub async fn execute_assistant_thread_list(
             .next_cursor
             .as_deref()
             .and_then(parse_assistant_thread_cursor);
+        // Preserve any non-null totals seen on earlier pages because later pages
+        // can omit `total_counts` entirely while still returning more threads.
+        for (key, value) in &response.pagination.total_counts {
+            merged_total_counts.entry(key.clone()).or_insert(*value);
+        }
         all_threads.append(&mut response.threads);
 
         let has_more = response.pagination.has_more;
@@ -542,6 +548,9 @@ pub async fn execute_assistant_thread_list(
 
     let mut response = last_response;
     response.threads = all_threads;
+    for (key, value) in merged_total_counts {
+        response.pagination.total_counts.entry(key).or_insert(value);
+    }
     response.pagination.count = response.threads.len() as u64;
     Ok(response)
 }
@@ -4686,7 +4695,7 @@ mod tests {
                 .body(concat!(
                     "hi:{\"v\":\"test\",\"trace\":\"trace-list\"}\0\n",
                     "tags.json:[]\0\n",
-                    "thread_list.html:{\"html\":\"<div class=\\\"hide-if-no-threads\\\"><ul class=\\\"thread-list\\\"><li class=\\\"thread\\\" data-code=\\\"thread-2\\\" data-saved=\\\"false\\\" data-public=\\\"false\\\" data-tags='[]' data-snippet=\\\"Second snippet\\\"><a href=\\\"/assistant/thread-2\\\"><div class=\\\"title\\\">Second Thread</div><div class=\\\"excerpt\\\">Second snippet</div></a></li></ul></div>\",\"next_cursor\":null,\"has_more\":false,\"count\":1,\"total_counts\":{\"all\":2}}\0\n"
+                    "thread_list.html:{\"html\":\"<div class=\\\"hide-if-no-threads\\\"><ul class=\\\"thread-list\\\"><li class=\\\"thread\\\" data-code=\\\"thread-2\\\" data-saved=\\\"false\\\" data-public=\\\"false\\\" data-tags='[]' data-snippet=\\\"Second snippet\\\"><a href=\\\"/assistant/thread-2\\\"><div class=\\\"title\\\">Second Thread</div><div class=\\\"excerpt\\\">Second snippet</div></a></li></ul></div>\",\"next_cursor\":null,\"has_more\":false,\"count\":1,\"total_counts\":null}\0\n"
                 ));
         });
 
