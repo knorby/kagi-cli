@@ -7,6 +7,10 @@ Before `1.0.0`, breaking changes may still ship in minor releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- `kagi assistant thread list` now follows Kagi's pagination cursor so large Assistant histories return beyond the first 100 threads, and thread-list parsing now tolerates object-shaped cursors plus nullable `total_counts`
+
 ## [0.4.5]
 
 ### Changed

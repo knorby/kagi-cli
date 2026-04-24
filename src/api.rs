@@ -146,6 +146,7 @@ pub async fn execute_summarize(
 ///
 /// # Arguments
 /// * `request` - The subscriber summarize request.
+/// * `list_id` - Optional thread or tag id used to continue listing.
 /// * `token` - The Kagi session token.
 ///
 /// # Returns
@@ -505,15 +506,53 @@ pub async fn execute_assistant_prompt(
 pub async fn execute_assistant_thread_list(
     token: &str,
 ) -> Result<AssistantThreadListResponse, KagiError> {
-    let body = execute_assistant_stream(
-        &http::kagi_url(KAGI_ASSISTANT_THREAD_LIST_PATH),
-        &json!({ "limit": 100 }),
-        token,
-        "Assistant thread list",
-    )
-    .await?;
+    let mut last_response;
+    let mut all_threads = Vec::new();
+    let mut cursor = None;
+    let mut merged_total_counts = HashMap::new();
 
-    parse_assistant_thread_list_stream(&body)
+    loop {
+        let mut payload = Map::new();
+        if let Some(cursor_value) = cursor.clone() {
+            payload.insert(String::from("cursor"), cursor_value);
+        }
+        payload.insert(String::from("limit"), json!(100));
+
+        let body = execute_assistant_stream(
+            &http::kagi_url(KAGI_ASSISTANT_THREAD_LIST_PATH),
+            &Value::Object(payload),
+            token,
+            "Assistant thread list",
+        )
+        .await?;
+
+        let mut response = parse_assistant_thread_list_stream(&body)?;
+        cursor = response
+            .pagination
+            .next_cursor
+            .as_deref()
+            .and_then(parse_assistant_thread_cursor);
+        // Preserve any non-null totals seen on earlier pages because later pages
+        // can omit `total_counts` entirely while still returning more threads.
+        for (key, value) in &response.pagination.total_counts {
+            merged_total_counts.entry(key.clone()).or_insert(*value);
+        }
+        all_threads.append(&mut response.threads);
+
+        let has_more = response.pagination.has_more;
+        last_response = response;
+        if !has_more || cursor.is_none() {
+            break;
+        }
+    }
+
+    let mut response = last_response;
+    response.threads = all_threads;
+    for (key, value) in merged_total_counts {
+        response.pagination.total_counts.entry(key).or_insert(value);
+    }
+    response.pagination.count = response.threads.len() as u64;
+    Ok(response)
 }
 
 /// Opens a specific Kagi Assistant thread and returns its messages.
@@ -3241,18 +3280,21 @@ fn parse_assistant_thread_list_stream(
                 })?;
             }
             "thread_list.html" => {
-                let payload: AssistantThreadListPayload =
-                    serde_json::from_str(payload).map_err(|error| {
-                        KagiError::Parse(format!(
-                            "failed to parse assistant thread list frame: {error}"
-                        ))
-                    })?;
-                threads = parse_assistant_thread_list(&payload.html)?;
+                let payload: Value = serde_json::from_str(payload).map_err(|error| {
+                    KagiError::Parse(format!(
+                        "failed to parse assistant thread list frame: {error}"
+                    ))
+                })?;
+                let html = assistant_thread_list_html(&payload)?;
+                threads = parse_assistant_thread_list(html)?;
                 pagination = Some(AssistantThreadPagination {
-                    next_cursor: payload.next_cursor,
-                    has_more: payload.has_more,
-                    count: payload.count,
-                    total_counts: payload.total_counts,
+                    next_cursor: assistant_thread_list_next_cursor(&payload),
+                    has_more: payload
+                        .get("has_more")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false),
+                    count: payload.get("count").and_then(Value::as_u64).unwrap_or(0),
+                    total_counts: assistant_thread_list_total_counts(&payload),
                 });
             }
             "limit_notice.html" => {
@@ -3329,6 +3371,49 @@ fn parse_assistant_thread_delete_stream(
     Err(KagiError::Parse(
         "assistant thread delete response did not include an ok frame".to_string(),
     ))
+}
+
+fn assistant_thread_list_html(payload: &Value) -> Result<&str, KagiError> {
+    let html = payload.get("html").ok_or_else(|| {
+        KagiError::Parse("assistant thread list payload missing html".to_string())
+    })?;
+
+    if let Some(html) = html.as_str() {
+        return Ok(html);
+    }
+
+    html.get("html").and_then(Value::as_str).ok_or_else(|| {
+        KagiError::Parse("assistant thread list payload missing html string".to_string())
+    })
+}
+
+fn assistant_thread_list_next_cursor(payload: &Value) -> Option<String> {
+    payload.get("next_cursor").and_then(|cursor| {
+        if cursor.is_null() {
+            None
+        } else {
+            Some(cursor.to_string())
+        }
+    })
+}
+
+fn assistant_thread_list_total_counts(payload: &Value) -> HashMap<String, u64> {
+    payload
+        .get("total_counts")
+        .and_then(Value::as_object)
+        .map(|counts| {
+            counts
+                .iter()
+                .filter_map(|(key, value)| value.as_u64().map(|value| (key.clone(), value)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn parse_assistant_thread_cursor(cursor: &str) -> Option<Value> {
+    serde_json::from_str::<Value>(cursor)
+        .ok()
+        .or_else(|| Some(json!({ "id": cursor })))
 }
 
 fn assistant_message_from_payload(payload: AssistantMessagePayload) -> AssistantMessage {
@@ -3872,19 +3957,6 @@ struct AssistantMessagePayload {
     trace_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct AssistantThreadListPayload {
-    html: String,
-    #[serde(default)]
-    next_cursor: Option<String>,
-    #[serde(default)]
-    has_more: bool,
-    #[serde(default)]
-    count: u64,
-    #[serde(default)]
-    total_counts: HashMap<String, u64>,
-}
-
 #[derive(Debug)]
 struct TranslateBootstrapResult {
     translate_session: String,
@@ -4105,11 +4177,11 @@ mod tests {
         normalize_aux_quality, normalize_custom_bang_trigger, normalize_redirect_rule,
         normalize_subscriber_summary_input, normalize_subscriber_summary_length,
         normalize_subscriber_summary_type, parse_assistant_prompt_stream,
-        parse_assistant_thread_delete_stream, parse_assistant_thread_list_stream,
-        parse_assistant_thread_open_stream, parse_content_disposition_filename,
-        parse_subscriber_summarize_stream, parse_translate_detect_value,
-        resolve_custom_assistant_ref, resolve_custom_bang_ref, resolve_lens_ref,
-        resolve_news_category, resolve_redirect_ref, resolve_translate_bootstrap,
+        parse_assistant_thread_cursor, parse_assistant_thread_delete_stream,
+        parse_assistant_thread_list_stream, parse_assistant_thread_open_stream,
+        parse_content_disposition_filename, parse_subscriber_summarize_stream,
+        parse_translate_detect_value, resolve_custom_assistant_ref, resolve_custom_bang_ref,
+        resolve_lens_ref, resolve_news_category, resolve_redirect_ref, resolve_translate_bootstrap,
         should_retry_translate_bootstrap, text_contains_news_filter_keyword,
         validate_translate_request,
     };
@@ -4143,6 +4215,33 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct ScopedEnvVar {
+        key: &'static str,
+        previous: Option<String>,
+    }
+
+    impl ScopedEnvVar {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = std::env::var(key).ok();
+            unsafe { std::env::set_var(key, value) }
+
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for ScopedEnvVar {
+        fn drop(&mut self) {
+            match self.previous.as_deref() {
+                Some(value) => unsafe { std::env::set_var(self.key, value) },
+                None => unsafe { std::env::remove_var(self.key) },
+            }
+        }
+    }
+
+    fn set_env_var(key: &'static str, value: &str) -> ScopedEnvVar {
+        ScopedEnvVar::set(key, value)
+    }
 
     fn sample_translate_request() -> TranslateCommandRequest {
         TranslateCommandRequest {
@@ -4539,6 +4638,81 @@ mod tests {
     }
 
     #[test]
+    fn parses_assistant_thread_cursor_from_cursor_payload() {
+        assert_eq!(
+            parse_assistant_thread_cursor(
+                r#"{"ack":"2026-02-11T16:22:13Z","created_at":"2026-02-11T16:22:13Z","id":"cursor-123"}"#
+            ),
+            Some(json!({
+                "ack": "2026-02-11T16:22:13Z",
+                "created_at": "2026-02-11T16:22:13Z",
+                "id": "cursor-123"
+            }))
+        );
+        assert_eq!(
+            parse_assistant_thread_cursor("cursor-123"),
+            Some(json!({ "id": "cursor-123" }))
+        );
+    }
+
+    #[tokio::test]
+    async fn assistant_thread_list_follows_cursor_pagination() {
+        use httpmock::Method::POST;
+        use httpmock::MockServer;
+
+        let server = MockServer::start();
+        let _first_page = server.mock(|when, then| {
+            when.method(POST)
+                .path("/assistant/thread_list")
+                .header("cookie", "kagi_session=test-session")
+                .header("accept", "application/vnd.kagi.stream")
+                .header("content-type", "application/json")
+                .json_body(json!({ "limit": 100 }));
+            then.status(200)
+                .header("content-type", "application/vnd.kagi.stream")
+                .body(concat!(
+                    "hi:{\"v\":\"test\",\"trace\":\"trace-list\"}\0\n",
+                    "tags.json:[]\0\n",
+                    "thread_list.html:{\"html\":\"<div class=\\\"hide-if-no-threads\\\"><ul class=\\\"thread-list\\\"><li class=\\\"thread\\\" data-code=\\\"thread-1\\\" data-saved=\\\"false\\\" data-public=\\\"false\\\" data-tags='[]' data-snippet=\\\"First snippet\\\"><a href=\\\"/assistant/thread-1\\\"><div class=\\\"title\\\">First Thread</div><div class=\\\"excerpt\\\">First snippet</div></a></li></ul></div>\",\"next_cursor\":{\"ack\":\"2026-02-11T16:22:13Z\",\"created_at\":\"2026-02-11T16:22:13Z\",\"id\":\"cursor-123\"},\"has_more\":true,\"count\":1,\"total_counts\":{\"all\":2}}\0\n"
+                ));
+        });
+        let _second_page = server.mock(|when, then| {
+            when.method(POST)
+                .path("/assistant/thread_list")
+                .header("cookie", "kagi_session=test-session")
+                .header("accept", "application/vnd.kagi.stream")
+                .header("content-type", "application/json")
+                .json_body(json!({
+                    "limit": 100,
+                    "cursor": {
+                        "ack": "2026-02-11T16:22:13Z",
+                        "created_at": "2026-02-11T16:22:13Z",
+                        "id": "cursor-123"
+                    }
+                }));
+            then.status(200)
+                .header("content-type", "application/vnd.kagi.stream")
+                .body(concat!(
+                    "hi:{\"v\":\"test\",\"trace\":\"trace-list\"}\0\n",
+                    "tags.json:[]\0\n",
+                    "thread_list.html:{\"html\":\"<div class=\\\"hide-if-no-threads\\\"><ul class=\\\"thread-list\\\"><li class=\\\"thread\\\" data-code=\\\"thread-2\\\" data-saved=\\\"false\\\" data-public=\\\"false\\\" data-tags='[]' data-snippet=\\\"Second snippet\\\"><a href=\\\"/assistant/thread-2\\\"><div class=\\\"title\\\">Second Thread</div><div class=\\\"excerpt\\\">Second snippet</div></a></li></ul></div>\",\"next_cursor\":null,\"has_more\":false,\"count\":1,\"total_counts\":null}\0\n"
+                ));
+        });
+
+        let _base_url_env = set_env_var("KAGI_BASE_URL", &server.base_url());
+        let response = execute_assistant_thread_list("test-session")
+            .await
+            .expect("thread list should succeed");
+
+        assert_eq!(response.meta.trace.as_deref(), Some("trace-list"));
+        assert_eq!(response.threads.len(), 2);
+        assert_eq!(response.threads[0].id, "thread-1");
+        assert_eq!(response.threads[1].id, "thread-2");
+        assert_eq!(response.pagination.count, 2);
+        assert_eq!(response.pagination.total_counts.get("all"), Some(&2));
+    }
+
+    #[test]
     fn normalizes_assistant_query_and_thread_id() {
         assert_eq!(
             normalize_assistant_query("  hello  ").expect("query trims"),
@@ -4691,6 +4865,32 @@ mod tests {
         assert_eq!(parsed.threads[0].id, "thread-1");
         assert_eq!(parsed.pagination.count, 1);
         assert_eq!(parsed.pagination.total_counts.get("all"), Some(&1));
+    }
+
+    #[test]
+    fn parses_assistant_thread_list_stream_with_wrapped_html_and_object_cursor() {
+        let raw = concat!(
+            "hi:{\"v\":\"202603171911.stage.707e740\",\"trace\":\"trace-list-object\"}\0\n",
+            "tags.json:[]\0\n",
+            "thread_list.html:{\"html\":{\"html\":\"<div class=\\\"hide-if-no-threads\\\"><ul class=\\\"thread-list\\\"><li class=\\\"thread\\\" data-code=\\\"thread-2\\\" data-saved=\\\"false\\\" data-public=\\\"true\\\" data-tags='[]' data-snippet=\\\"Second snippet\\\"><a href=\\\"/assistant/thread-2\\\"><div class=\\\"title\\\">Second Thread</div><div class=\\\"excerpt\\\">Second snippet</div></a></li></ul></div>\"},\"next_cursor\":{\"offset\":100,\"has_more\":true},\"has_more\":true,\"count\":100,\"total_counts\":{\"all\":250}}\0\n"
+        );
+
+        let parsed = parse_assistant_thread_list_stream(raw).expect("thread list parses");
+        assert_eq!(parsed.meta.trace.as_deref(), Some("trace-list-object"));
+        assert_eq!(parsed.threads.len(), 1);
+        assert_eq!(parsed.threads[0].id, "thread-2");
+        let next_cursor = parsed
+            .pagination
+            .next_cursor
+            .as_deref()
+            .expect("wrapped cursor should be preserved");
+        let next_cursor_json: Value =
+            serde_json::from_str(next_cursor).expect("cursor should stay valid JSON");
+        assert_eq!(next_cursor_json["offset"], 100);
+        assert_eq!(next_cursor_json["has_more"], true);
+        assert!(parsed.pagination.has_more);
+        assert_eq!(parsed.pagination.count, 100);
+        assert_eq!(parsed.pagination.total_counts.get("all"), Some(&250));
     }
 
     #[test]
